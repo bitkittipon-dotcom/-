@@ -7099,6 +7099,8 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     z-index: 10;
     background: linear-gradient(180deg, #5a4416, #2a1810);
     padding: 12px 14px;
+    /* iOS safe-area: เผื่อ notch / status bar */
+    padding-top: max(12px, env(safe-area-inset-top, 12px));
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -9335,6 +9337,10 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     background: linear-gradient(to bottom, #2d2014, #1a1108);
     color: #d4af37;
     padding: 10px 14px;
+    /* iOS safe-area: เผื่อ notch / status bar */
+    padding-top: max(10px, calc(env(safe-area-inset-top, 10px) + 6px));
+    padding-left: max(14px, env(safe-area-inset-left, 14px));
+    padding-right: max(14px, env(safe-area-inset-right, 14px));
     display: flex;
     align-items: center;
     gap: 10px;
