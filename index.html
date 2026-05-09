@@ -11120,6 +11120,27 @@ function cloudInit() {
   if (typeof cloudStartSyncLoop === 'function') {
     cloudStartSyncLoop();
   }
+
+  // Initial migration: ถ้ามี quotes ใน local แต่ยังไม่เคย sync — mark dirty ทั้งหมด
+  // (จะ push ขึ้น cloud ตอน sync รอบถัดไป)
+  setTimeout(() => {
+    if (!window.supaReady) return;
+    if (typeof state === 'undefined' || !state || !Array.isArray(state.quotes)) return;
+    const migrationKey = 'thodsapon_quotes_migrated_v1';
+    if (localStorage.getItem(migrationKey) === 'done') return;
+    if (state.quotes.length === 0) {
+      localStorage.setItem(migrationKey, 'done');
+      return;
+    }
+    // Mark ทุก quote เป็น dirty → push ขึ้น cloud
+    console.log('[cloud] migrating', state.quotes.length, 'quotes to cloud');
+    state.quotes.forEach(q => {
+      _cloudDirty.quotes.add(q.id);
+    });
+    cloudSaveDirty(_cloudDirty);
+    localStorage.setItem(migrationKey, 'done');
+    cloudScheduleSync(2000);
+  }, 3000);
 }
 
 function cloudUpdateIndicator() {
@@ -12085,7 +12106,15 @@ function load() {
     if (raw) state.quotes = JSON.parse(raw);
   } catch(e) { console.error(e); }
 }
-function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.quotes)); }
+function _persistRaw() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.quotes)); }
+let _cloudSkipDirty = false;
+function persist() {
+  _persistRaw();
+  // trigger cloud sync เฉพาะตอนที่ไม่ใช่จาก pull (ป้องกัน loop)
+  if (!_cloudSkipDirty && typeof cloudOnLocalChange === 'function') {
+    cloudOnLocalChange('quotes');
+  }
+}
 
 const fmt = (n) => {
   if (n === null || n === undefined || isNaN(n)) return '—';
@@ -15064,27 +15093,32 @@ function cloudLoadDirty() {
     return {
       gardens: new Set(obj.gardens || []),
       notes: new Set(obj.notes || []),
+      quotes: new Set(obj.quotes || []),
       deleted_gardens: new Set(obj.deleted_gardens || []),
       deleted_notes: new Set(obj.deleted_notes || []),
+      deleted_quotes: new Set(obj.deleted_quotes || []),
     };
-  } catch(e) { return { gardens: new Set(), notes: new Set(), deleted_gardens: new Set(), deleted_notes: new Set() }; }
+  } catch(e) { return { gardens: new Set(), notes: new Set(), quotes: new Set(), deleted_gardens: new Set(), deleted_notes: new Set(), deleted_quotes: new Set() }; }
 }
 function cloudSaveDirty(d) {
   localStorage.setItem(CLOUD_DIRTY_KEY, JSON.stringify({
     gardens: [...d.gardens],
     notes: [...d.notes],
+    quotes: [...d.quotes],
     deleted_gardens: [...d.deleted_gardens],
     deleted_notes: [...d.deleted_notes],
+    deleted_quotes: [...d.deleted_quotes],
   }));
-  _cloudQueueCount = d.gardens.size + d.notes.size + d.deleted_gardens.size + d.deleted_notes.size;
+  _cloudQueueCount = d.gardens.size + d.notes.size + d.quotes.size + d.deleted_gardens.size + d.deleted_notes.size + d.deleted_quotes.size;
 }
 
 let _cloudDirty = cloudLoadDirty();
-_cloudQueueCount = _cloudDirty.gardens.size + _cloudDirty.notes.size + _cloudDirty.deleted_gardens.size + _cloudDirty.deleted_notes.size;
+_cloudQueueCount = _cloudDirty.gardens.size + _cloudDirty.notes.size + _cloudDirty.quotes.size + _cloudDirty.deleted_gardens.size + _cloudDirty.deleted_notes.size + _cloudDirty.deleted_quotes.size;
 
 // Snapshot ของข้อมูลก่อนหน้า — ใช้ตรวจ "ลบ" และ "เปลี่ยนแปลง"
 let _cloudPrevGardenIds = null;
 let _cloudPrevNoteIds = null;
+let _cloudPrevQuoteIds = null;
 function _ensurePrev() {
   if (_cloudPrevGardenIds === null) {
     _cloudPrevGardenIds = new Set((typeof gardens !== 'undefined' ? gardens : []).map(g => g.id));
@@ -15092,21 +15126,22 @@ function _ensurePrev() {
   if (_cloudPrevNoteIds === null) {
     _cloudPrevNoteIds = new Set((typeof notes !== 'undefined' ? notes : []).map(n => n.id));
   }
+  if (_cloudPrevQuoteIds === null) {
+    const qs = (typeof state !== 'undefined' && state && Array.isArray(state.quotes)) ? state.quotes : [];
+    _cloudPrevQuoteIds = new Set(qs.map(q => q.id));
+  }
 }
 
-// เรียกจาก saveGardens / saveNotes
+// เรียกจาก saveGardens / saveNotes / persist (quotes)
 function cloudOnLocalChange(kind) {
   if (!window.SUPA_CONFIG.enabled || !window.supaReady) return;
   _ensurePrev();
   if (kind === 'gardens') {
     const cur = new Set(gardens.map(g => g.id));
-    // ใหม่/แก้ไข — mark dirty
     gardens.forEach(g => {
-      // ติด timestamp ที่ record ว่าแก้เมื่อไหร่ (ใช้สำหรับ conflict resolution)
       g._localUpdatedAt = Date.now();
       _cloudDirty.gardens.add(g.id);
     });
-    // ลบ — id ที่เคยมีแต่หายไป
     [..._cloudPrevGardenIds].forEach(id => {
       if (!cur.has(id)) {
         _cloudDirty.deleted_gardens.add(id);
@@ -15127,10 +15162,23 @@ function cloudOnLocalChange(kind) {
       }
     });
     _cloudPrevNoteIds = cur;
+  } else if (kind === 'quotes') {
+    const qs = (state && Array.isArray(state.quotes)) ? state.quotes : [];
+    const cur = new Set(qs.map(q => q.id));
+    qs.forEach(q => {
+      q._localUpdatedAt = Date.now();
+      _cloudDirty.quotes.add(q.id);
+    });
+    [..._cloudPrevQuoteIds].forEach(id => {
+      if (!cur.has(id)) {
+        _cloudDirty.deleted_quotes.add(id);
+        _cloudDirty.quotes.delete(id);
+      }
+    });
+    _cloudPrevQuoteIds = cur;
   }
   cloudSaveDirty(_cloudDirty);
   cloudUpdateIndicator();
-  // debounce sync (1.5s)
   cloudScheduleSync(1500);
 }
 
@@ -15235,6 +15283,33 @@ async function cloudPushDirty() {
     }
   }
 
+  // 2b) Quotes upsert
+  const quoteIds = [..._cloudDirty.quotes];
+  if (quoteIds.length > 0) {
+    const rows = [];
+    const localQuotes = (state && Array.isArray(state.quotes)) ? state.quotes : [];
+    for (const id of quoteIds) {
+      const q = localQuotes.find(x => x.id === id);
+      if (!q) continue;
+      const { _localUpdatedAt, ...clean } = q;
+      rows.push({
+        id: q.id,
+        data: clean,
+        updated_by: userId,
+        deleted: false,
+      });
+    }
+    if (rows.length > 0) {
+      // Push เป็น batch ละ 50 quotes (ป้องกัน payload ใหญ่)
+      for (let i = 0; i < rows.length; i += 50) {
+        const batch = rows.slice(i, i + 50);
+        const { error } = await window.supaClient.from('quotes').upsert(batch, { onConflict: 'id' });
+        if (error) throw new Error('push quotes: ' + error.message);
+      }
+      quoteIds.forEach(id => _cloudDirty.quotes.delete(id));
+    }
+  }
+
   // 3) Soft deletes
   const delGardens = [..._cloudDirty.deleted_gardens];
   if (delGardens.length > 0) {
@@ -15251,6 +15326,14 @@ async function cloudPushDirty() {
       .in('id', delNotes);
     if (error) throw new Error('delete notes: ' + error.message);
     delNotes.forEach(id => _cloudDirty.deleted_notes.delete(id));
+  }
+  const delQuotes = [..._cloudDirty.deleted_quotes];
+  if (delQuotes.length > 0) {
+    const { error } = await window.supaClient.from('quotes')
+      .update({ deleted: true, deleted_at: new Date().toISOString(), updated_by: userId })
+      .in('id', delQuotes);
+    if (error) throw new Error('delete quotes: ' + error.message);
+    delQuotes.forEach(id => _cloudDirty.deleted_quotes.delete(id));
   }
 
   cloudSaveDirty(_cloudDirty);
@@ -15327,6 +15410,36 @@ async function cloudPullUpdates() {
     }
   });
 
+  // 3) Quotes
+  const { data: qData, error: qErr } = await window.supaClient
+    .from('quotes')
+    .select('id,data,updated_at,deleted')
+    .gt('updated_at', since)
+    .order('updated_at', { ascending: true });
+  if (qErr) throw new Error('pull quotes: ' + qErr.message);
+
+  let quotesChanged = false;
+  if (state && Array.isArray(state.quotes)) {
+    (qData || []).forEach(row => {
+      if (row.updated_at > serverNow) serverNow = row.updated_at;
+      const local = state.quotes.find(x => x.id === row.id);
+      const localUpdated = local && local._localUpdatedAt ? local._localUpdatedAt : 0;
+      const serverUpdated = new Date(row.updated_at).getTime();
+      if (localUpdated > serverUpdated && _cloudDirty.quotes.has(row.id)) return;
+
+      if (row.deleted) {
+        const idx = state.quotes.findIndex(x => x.id === row.id);
+        if (idx >= 0) { state.quotes.splice(idx, 1); quotesChanged = true; }
+      } else {
+        const idx = state.quotes.findIndex(x => x.id === row.id);
+        const incoming = { ...(row.data || {}), id: row.id };
+        if (idx >= 0) state.quotes[idx] = incoming;
+        else state.quotes.push(incoming);
+        quotesChanged = true;
+      }
+    });
+  }
+
   // เก็บลง localStorage โดยไม่ trigger dirty ซ้ำ
   if (gardensChanged) {
     localStorage.setItem(KEY_GARDENS, JSON.stringify(gardens));
@@ -15335,6 +15448,16 @@ async function cloudPullUpdates() {
   if (notesChanged) {
     localStorage.setItem(KEY_NOTES, JSON.stringify(notes));
     _cloudPrevNoteIds = new Set(notes.map(n => n.id));
+  }
+  if (quotesChanged) {
+    // เรียก persist (state) เพื่อ save ลง localStorage โดยไม่ trigger dirty
+    if (typeof _persistRaw === 'function') _persistRaw();
+    else if (typeof persist === 'function') {
+      // ป้องกัน loop: ใช้ flag
+      _cloudSkipDirty = true;
+      try { persist(); } finally { _cloudSkipDirty = false; }
+    }
+    _cloudPrevQuoteIds = new Set(state.quotes.map(q => q.id));
   }
 
   // อัปเดต watermark
@@ -15345,9 +15468,16 @@ async function cloudPullUpdates() {
     if (typeof renderListView === 'function') {
       try { renderListView(); } catch(e) {}
     }
-    // ถ้ากำลังเปิด detail view อยู่ ก็ refresh
     if (typeof renderDetail === 'function' && typeof currentDetailId !== 'undefined' && currentDetailId) {
       try { renderDetail(); } catch(e) {}
+    }
+  }
+  if (quotesChanged) {
+    if (typeof renderList === 'function') {
+      try { renderList(); } catch(e) {}
+    }
+    if (typeof renderRecent === 'function') {
+      try { renderRecent(); } catch(e) {}
     }
   }
 }
