@@ -3344,8 +3344,8 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     z-index: 10;
     background: linear-gradient(180deg, #3d5e1a, #2d4515);
     padding: 12px 14px;
-    /* iOS safe area: ขยาย padding-top เผื่อ notch + status bar */
-    padding-top: max(12px, env(safe-area-inset-top, 12px));
+    /* Status bar offset (เผื่อ notch ทุกกรณี — PWA + browser) */
+    padding-top: max(50px, calc(env(safe-area-inset-top, 0px) + 14px));
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -7099,8 +7099,8 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     z-index: 10;
     background: linear-gradient(180deg, #5a4416, #2a1810);
     padding: 12px 14px;
-    /* iOS safe-area: เผื่อ notch / status bar */
-    padding-top: max(12px, env(safe-area-inset-top, 12px));
+    /* Status bar offset (เผื่อ notch ทุกกรณี — PWA + browser) */
+    padding-top: max(50px, calc(env(safe-area-inset-top, 0px) + 14px));
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -9337,8 +9337,12 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     background: linear-gradient(to bottom, #2d2014, #1a1108);
     color: #d4af37;
     padding: 10px 14px;
-    /* iOS safe-area: เผื่อ notch / status bar */
-    padding-top: max(10px, calc(env(safe-area-inset-top, 10px) + 6px));
+    /* Status bar offset:
+       - PWA standalone: ใช้ env(safe-area-inset-top)
+       - Browser ปกติ: env=0 — ใช้ค่า minimum 50px เผื่อ status bar
+       - หมายเหตุ: 50px พอสำหรับ iPhone X+ notch (44pt) + spacing
+    */
+    padding-top: max(50px, calc(env(safe-area-inset-top, 0px) + 12px));
     padding-left: max(14px, env(safe-area-inset-left, 14px));
     padding-right: max(14px, env(safe-area-inset-right, 14px));
     display: flex;
