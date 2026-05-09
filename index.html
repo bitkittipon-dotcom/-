@@ -23,7 +23,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 // ════════════════════════════════════════════
@@ -95,6 +95,7 @@ window.supaReady = false;
   }
   body {
     min-height: 100vh;
+    min-height: 100dvh;
     background: #ddd5c0;
   }
 
@@ -318,7 +319,7 @@ window.supaReady = false;
   }
 
   /* ── Main ─────────────────────────────── */
-  main { padding: 0; padding-bottom: 100px; }
+  main { padding: 0; padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
   .view { display: none; }
   .view.active { display: block; }
 
@@ -1463,7 +1464,7 @@ window.supaReady = false;
 
   /* ── Toast ──────────────────────────────── */
   .toast {
-    position: fixed; bottom: 24px; left: 50%;
+    position: fixed; bottom: max(24px, calc(env(safe-area-inset-bottom, 24px) + 14px)); left: 50%;
     transform: translateX(-50%) translateY(120px);
     background: var(--ink);
     color: var(--paper);
@@ -2016,6 +2017,7 @@ window.supaReady = false;
 .admin-page {
   background: linear-gradient(to bottom, #2d2014 0%, #1a1108 100%);
   min-height: calc(100vh - 56px);
+  min-height: calc(100dvh - 56px);
   padding: 20px 16px 24px;
   color: #f4e8c8;
 }
@@ -2145,7 +2147,36 @@ window.supaReady = false;
 .auth-modal-ok { background: linear-gradient(135deg, #8b1a1a, #6d1414); color: #f4e8c8; border: 1px solid rgba(212,175,55,0.4); }
 
 /* prevent body scroll bounce when login active */
-body { overscroll-behavior: none; }
+html, body {
+  overscroll-behavior: none;
+  /* iOS Safari: ป้องกัน swipe back gesture จากขอบซ้าย/ขวา */
+  overscroll-behavior-x: none;
+  /* ป้องกัน pinch zoom + double-tap zoom */
+  touch-action: pan-y;
+}
+
+/* Mobile: ลด tap delay 300ms + ปิด tap highlight สีฟ้า */
+button, a, [onclick], [role="button"], input[type="button"], input[type="submit"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS: ป้องกัน auto-zoom ตอน focus input ที่ font-size < 16px */
+@supports (-webkit-touch-callout: none) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* iOS Safari standalone (PWA): ปิด pull-to-refresh ทั้งหมด */
+@supports (-webkit-touch-callout: none) {
+  html, body {
+    position: relative;
+    overflow-x: hidden;
+  }
+}
 
 /* PWA: รองรับ notch + safe area บน iPhone (เวลาเปิด standalone) */
 @supports (padding: max(0px)) {
@@ -2157,9 +2188,38 @@ body { overscroll-behavior: none; }
   }
 }
 
+/* ── Tablet / iPad: จำกัด max-width ให้คล้ายมือถือใหญ่ + center ── */
+@media (min-width: 768px) {
+  body {
+    max-width: 480px;
+    margin: 0 auto;
+    box-shadow: 0 0 30px rgba(0,0,0,0.4);
+    background: linear-gradient(to bottom, #1a1108 0%, #0a0604 100%);
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  /* fixed elements ที่ต้อง constrain ตาม body */
+  /* sticky header — ใช้ position: sticky → ตาม body ปกติแล้ว */
+  /* drawer & FAB — adjust right offset เผื่อขอบ */
+  #garden-view .fab {
+    right: calc(max(50% - 240px, 0px) + 18px);
+  }
+}
+
+/* iPad landscape — กว้างขึ้นเล็กน้อย */
+@media (min-width: 1024px) {
+  body {
+    max-width: 540px;
+  }
+  #garden-view .fab {
+    right: calc(max(50% - 270px, 0px) + 18px);
+  }
+}
+
 /* home + admin views — เต็มจอ ทับ paper bg ของ app เดิม */
 #home-view, #admin-view {
   min-height: 100vh;
+  min-height: 100dvh;
   background: linear-gradient(to bottom, #1a1108 0%, #0a0604 100%);
 }
 
@@ -2506,6 +2566,7 @@ body { overscroll-behavior: none; }
   top: 0; right: -300px;
   width: 280px;
   height: 100vh;
+  height: 100dvh;
   background: linear-gradient(to bottom, #2d2014, #1a1108);
   border-left: 1px solid rgba(212,175,55,0.4);
   box-shadow: -4px 0 20px rgba(0,0,0,0.6);
@@ -2674,24 +2735,24 @@ body { overscroll-behavior: none; }
       0 0 0 #1a0e04;
   }
 
-  /* ── Cam button (ถ่ายบิล) — ติดข้างปุ่มกลับ ── */
+  /* ── Cam button (ถ่ายบิล) — อยู่ขวาสุด · JS จะปรับตำแหน่งตามว่ามีปุ่มเฟืองหรือไม่ ── */
   #garden-view .ph .cam-btn {
     position: absolute;
-    left: 105px;
+    right: 44px;  /* ชิดปุ่ม settings (settings = 38px width + 6px gap) */
     top: 50%;
     transform: translateY(-50%);
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    padding: 8px 14px 8px 11px;
+    gap: 5px;
+    padding: 6px 10px 6px 8px;
     background: linear-gradient(180deg, #7a5318 0%, #5a3818 35%, #3a2010 75%, #2a1408 100%);
     color: #f0d8a0;
     border: 1.5px solid #1a0e04;
     border-radius: 6px;
     cursor: pointer;
     font-weight: 800;
-    font-size: 12px;
-    letter-spacing: 1px;
+    font-size: 10.5px;
+    letter-spacing: 0.5px;
     font-family: 'Cinzel', serif;
     text-shadow: 0 1px 0 rgba(0,0,0,0.7), 0 0 6px rgba(212,175,55,0.25);
     box-shadow:
@@ -3256,13 +3317,26 @@ body { overscroll-behavior: none; }
     inset: 0;
     background: linear-gradient(180deg, #faf3df, #f0e4c0 40%, #e8dab0);
     z-index: 100;
-    overflow-y: auto;
     display: none;
+    /* ใช้ flex column เพื่อให้ bottom bar อยู่ล่างจริง */
+    flex-direction: column;
+  }
+  #garden-view #cam-fullscreen[style*="display: block"],
+  #garden-view #cam-fullscreen[style*="display:block"] {
+    display: flex !important;
   }
   #garden-view .cam-fs-wrap {
-    min-height: 100vh;
-    padding-bottom: 100px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
     position: relative;
+  }
+  #garden-view .cam-fs-body {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   #garden-view .cam-fs-header {
     position: sticky;
@@ -3270,6 +3344,8 @@ body { overscroll-behavior: none; }
     z-index: 10;
     background: linear-gradient(180deg, #3d5e1a, #2d4515);
     padding: 12px 14px;
+    /* iOS safe area: ขยาย padding-top เผื่อ notch + status bar */
+    padding-top: max(12px, env(safe-area-inset-top, 12px));
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -3568,12 +3644,12 @@ body { overscroll-behavior: none; }
 
   /* Bottom bar */
   #garden-view .cam-fs-bottom-bar {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    position: relative;
+    flex-shrink: 0;
     background: linear-gradient(180deg, #3d5e1a, #2d4515);
     padding: 12px 14px;
+    /* iOS safe area: ขยาย padding-bottom เผื่อ home indicator */
+    padding-bottom: max(12px, calc(env(safe-area-inset-bottom, 12px) + 4px));
     border-top: 3px double #b08d2a;
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -3731,7 +3807,7 @@ body { overscroll-behavior: none; }
     left: 0;
     right: 0;
     z-index: 90;
-    height: 80px;
+    min-height: 80px;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     background:
@@ -3921,7 +3997,7 @@ body { overscroll-behavior: none; }
   }
   /* Body padding when bottom nav visible */
   #garden-view #detail-view {
-    padding-bottom: 90px;
+    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
   }
   /* The stamp overlay (เปิดสวน/ปิดสวน) might overlap title — keep it */
     #garden-view .ph .title-th {
@@ -3930,12 +4006,21 @@ body { overscroll-behavior: none; }
     font-weight: 800;
     color: #2a1810;
     letter-spacing: 0.1em;
+    /* เผื่อพื้นที่ ป้าย "ปิดสวน" ที่อยู่ขวาบน + ปุ่มต่างๆ */
+    padding: 0 110px 0 100px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
   }
     #garden-view .ph .sub {
     font-size: 11px;
     color: #6b4423;
     margin-top: 2px;
     font-style: italic;
+    padding: 0 110px 0 100px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
   }
     #garden-view .ph::before, #garden-view .ph::after {
     content: '✦';
@@ -4108,6 +4193,59 @@ body { overscroll-behavior: none; }
     border-color: #2d3325;
     color: #f4e8c8;
   }
+  /* archive chip — สีน้ำตาลทอง */
+    #garden-view .chip.archive-chip {
+    background: linear-gradient(135deg, rgba(122,90,40,0.12), rgba(90,56,24,0.08));
+    border-color: #7a5a28;
+    color: #5a3818;
+    font-weight: 700;
+  }
+    #garden-view .chip.archive-chip.active {
+    background: linear-gradient(135deg, #7a5a28, #5a3818);
+    border-color: #3a2010;
+    color: #f4e8c8;
+  }
+  /* archived garden card — faded */
+    #garden-view .garden-card.archived {
+    opacity: 0.72;
+    background: linear-gradient(135deg, rgba(122,90,40,0.04), rgba(90,56,24,0.02));
+    border-left-color: #7a5a28;
+  }
+    #garden-view .garden-card.archived .lc-name {
+    color: #5a3818;
+  }
+  /* banner ใน detail view */
+    #garden-view .archive-banner {
+    background: linear-gradient(135deg, #f5e8c8, #e8d8a0);
+    border: 1.5px solid #7a5a28;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'Sarabun', sans-serif;
+  }
+    #garden-view .archive-banner .ico { font-size: 22px; flex-shrink: 0; }
+    #garden-view .archive-banner .body { flex: 1; }
+    #garden-view .archive-banner .title { font-weight: 800; color: #3a2010; font-size: 14px; }
+    #garden-view .archive-banner .meta { font-size: 12px; color: #5a3818; margin-top: 2px; }
+    #garden-view .archive-banner button {
+    background: linear-gradient(180deg, #6b8e3d, #4a6928);
+    color: #f4e8c8;
+    border: 1.5px solid #2d3325;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-family: inherit;
+    box-shadow: 0 2px 0 #2d3325;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+    #garden-view .archive-banner button:active { transform: translateY(1px); box-shadow: 0 1px 0 #2d3325; }
     #garden-view .chip .count {
     background: rgba(0,0,0,0.15);
     padding: 1px 6px;
@@ -4421,7 +4559,8 @@ body { overscroll-behavior: none; }
   /* FAB */
     #garden-view .fab {
     position: fixed;
-    bottom: 18px; right: 18px;
+    bottom: max(18px, calc(env(safe-area-inset-bottom, 18px) + 12px));
+    right: 18px;
     width: 52px; height: 52px;
     background: linear-gradient(135deg, #6b8e3d, #4a6928);
     color: white;
@@ -4435,7 +4574,7 @@ body { overscroll-behavior: none; }
     transition: bottom 0.28s ease;
   }
   /* When viewing detail (bottom nav visible), lift FAB up */
-  #garden-view .fab.lifted { bottom: 80px; }
+  #garden-view .fab.lifted { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
 
   /* DETAIL view */
     #garden-view .detail-card {
@@ -9184,6 +9323,13 @@ body { overscroll-behavior: none; }
     display: flex;
     flex-direction: column;
   }
+  /* Global: ป้องกัน input/select/textarea ขยายเลยขอบ container */
+    #garden-view #garden-form-screen input,
+    #garden-view #garden-form-screen select,
+    #garden-view #garden-form-screen textarea {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
   /* Topbar still dark — separates it from parchment body */
     #garden-view .gfs-topbar {
     background: linear-gradient(to bottom, #2d2014, #1a1108);
@@ -9277,8 +9423,11 @@ body { overscroll-behavior: none; }
     #garden-view .gfs-body {
     flex: 1;
     overflow-y: auto;
-    padding: 22px 16px 50px;
+    overflow-x: hidden;
+    padding: 22px 14px 50px;
     position: relative;
+    box-sizing: border-box;
+    width: 100%;
   }
   /* Big contract heading */
     #garden-view .gfs-body::before {
@@ -9341,9 +9490,11 @@ body { overscroll-behavior: none; }
   /* Form fields — input with border, parchment compatible */
     #garden-view .d-grid {
     display: grid;
-    grid-template-columns: 90px 1fr;
+    grid-template-columns: 90px minmax(0, 1fr);
     gap: 6px 10px;
     align-items: center;
+    width: 100%;
+    max-width: 100%;
   }
     #garden-view .d-grid > label {
     font-size: 12px;
@@ -9357,6 +9508,7 @@ body { overscroll-behavior: none; }
     #garden-view .d-grid > select,
     #garden-view .d-grid > textarea {
     width: 100%;
+    box-sizing: border-box;
     background: rgba(255,255,255,0.75);
     border: 1px solid rgba(107,68,35,0.4);
     border-radius: 3px;
@@ -9417,6 +9569,7 @@ body { overscroll-behavior: none; }
   }
     #garden-view .deposit-stack input[type="number"] {
     width: 100%;
+    box-sizing: border-box;
     background: rgba(255,255,255,0.7);
     border: 1px solid rgba(58,30,15,0.3);
     border-radius: 4px;
@@ -11076,6 +11229,12 @@ function enterApp() {
   goHome();
   // เริ่มระบบ cloud (indicator + sync ในส่วนถัดไป)
   cloudInit();
+  // เช็ค auto-archive (delay 5s รอ cloud sync เสร็จก่อน)
+  setTimeout(() => {
+    if (typeof checkAutoArchive === 'function') {
+      checkAutoArchive().catch(e => console.error('archive check', e));
+    }
+  }, 5000);
 }
 
 // ════════════════════════════════════════════
@@ -11091,7 +11250,7 @@ function cloudInit() {
     const el = document.createElement('div');
     el.id = 'cloud-indicator';
     el.style.cssText = `
-      position: fixed; bottom: 14px; left: 14px; z-index: 250;
+      position: fixed; bottom: max(14px, calc(env(safe-area-inset-bottom, 14px) + 8px)); left: 14px; z-index: 250;
       background: rgba(45,51,37,0.92); color: #f3ecd7;
       border: 1px solid rgba(212,175,55,0.4);
       border-radius: 18px; padding: 5px 11px 5px 9px;
@@ -11644,6 +11803,19 @@ document.addEventListener('DOMContentLoaded', () => {
       authModalAction = null;
     });
   }
+
+  // iOS Safari: ป้องกัน edge swipe back gesture
+  // (ลากนิ้วจากขอบซ้าย/ขวาของจอ → ย้อนกลับใน history)
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      const w = window.innerWidth || document.documentElement.clientWidth;
+      // ถ้าเริ่ม touch ที่ขอบซ้าย < 20px หรือขอบขวา > w-20 → block
+      if (t.clientX < 20 || t.clientX > w - 20) {
+        e.preventDefault();
+      }
+    }
+  }, { passive: false });
   // auto-login from session
   const s = getSession();
   if (s) {
@@ -12106,7 +12278,18 @@ function load() {
     if (raw) state.quotes = JSON.parse(raw);
   } catch(e) { console.error(e); }
 }
-function _persistRaw() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.quotes)); }
+function _persistRaw() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.quotes));
+  } catch(e) {
+    console.error('_persistRaw error:', e);
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      if (typeof toast === 'function') toast('⚠ พื้นที่เต็ม — ลบรายการเก่าก่อน');
+    } else {
+      if (typeof toast === 'function') toast('⚠ บันทึกไม่สำเร็จ');
+    }
+  }
+}
 let _cloudSkipDirty = false;
 function persist() {
   _persistRaw();
@@ -12120,7 +12303,15 @@ const fmt = (n) => {
   if (n === null || n === undefined || isNaN(n)) return '—';
   return Math.round(n).toLocaleString('th-TH');
 };
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = () => {
+  // ใช้ local timezone (ไม่ใช่ UTC) — สำคัญสำหรับ Bangkok +07:00
+  // ถ้าใช้ toISOString() ตอนเช้า (00:00-07:00) จะ return วันก่อน
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
 const fmtDate = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
@@ -12134,6 +12325,331 @@ function toast(msg) {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 1800);
 }
+
+// ── Confirmation Modal · ปลอดภัยกว่า confirm() เพราะปุ่มยกเลิกใหญ่กว่า ──
+// ใช้: const ok = await confirmAction({title, body, danger: true, okLabel: 'ลบ'})
+function confirmAction(opts) {
+  return new Promise(resolve => {
+    const {
+      title = 'ยืนยัน',
+      body = '',
+      okLabel = 'ตกลง',
+      cancelLabel = 'ยกเลิก',
+      danger = false,
+    } = opts || {};
+    // ลบของเก่าถ้ายังเปิดอยู่
+    const old = document.getElementById('cf-act-bg');
+    if (old) old.remove();
+
+    const bg = document.createElement('div');
+    bg.id = 'cf-act-bg';
+    bg.style.cssText = `
+      position: fixed; inset: 0;
+      background: rgba(20,12,6,0.7);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      z-index: 99999;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+      animation: cfActFade 0.18s ease-out;
+    `;
+    const okColor = danger ? '#b53d2a' : '#3a6b1a';
+    const okBorder = danger ? '#7a1a0d' : '#1f3d0a';
+    bg.innerHTML = `
+      <style>
+        @keyframes cfActFade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes cfActPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        #cf-act-card { animation: cfActPop 0.22s cubic-bezier(0.34, 1.4, 0.64, 1); }
+        #cf-act-card .cf-btn { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        #cf-act-card .cf-btn:active { transform: scale(0.96); }
+      </style>
+      <div id="cf-act-card" style="
+        background: linear-gradient(180deg, #faf3df 0%, #f0e4c0 100%);
+        border: 2px solid #6b4423;
+        border-radius: 14px;
+        padding: 22px 20px 18px;
+        max-width: 360px; width: 100%;
+        box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+        font-family: 'Sarabun', sans-serif;
+      ">
+        <div style="
+          font-family: 'Cinzel', serif; font-size: 17px; font-weight: 800;
+          color: ${danger ? '#7a1a0d' : '#3a2010'}; text-align: center;
+          margin-bottom: 10px; letter-spacing: 1px;
+        ">${danger ? '⚠️ ' : ''}${title}</div>
+        <div style="
+          font-size: 14px; color: #3a2010; line-height: 1.55;
+          text-align: center; margin-bottom: 22px;
+          padding: 0 6px;
+        ">${body}</div>
+        <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px;">
+          <button id="cf-act-cancel" class="cf-btn" style="
+            background: linear-gradient(180deg, #e8dab0, #c8a878);
+            border: 1.5px solid #6b4423; color: #3a2010;
+            padding: 13px 12px; border-radius: 8px;
+            font-size: 15px; font-weight: 700;
+            cursor: pointer; font-family: inherit;
+            box-shadow: 0 2px 0 #6b4423, inset 0 1px 0 rgba(255,255,255,0.5);
+          ">${cancelLabel}</button>
+          <button id="cf-act-ok" class="cf-btn" style="
+            background: linear-gradient(180deg, ${okColor} 0%, ${okBorder} 100%);
+            border: 1.5px solid ${okBorder}; color: white;
+            padding: 13px 8px; border-radius: 8px;
+            font-size: 14px; font-weight: 800;
+            cursor: pointer; font-family: inherit;
+            box-shadow: 0 2px 0 ${okBorder}, inset 0 1px 0 rgba(255,255,255,0.25);
+          ">${okLabel}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(bg);
+
+    const close = (val) => {
+      bg.style.animation = 'cfActFade 0.15s ease-out reverse';
+      setTimeout(() => { bg.remove(); resolve(val); }, 150);
+    };
+    document.getElementById('cf-act-cancel').onclick = () => { if (typeof haptic === 'function') haptic(8); close(false); };
+    document.getElementById('cf-act-ok').onclick = () => { if (typeof haptic === 'function') haptic(15); close(true); };
+    bg.onclick = (e) => { if (e.target === bg) close(false); };
+  });
+}
+window.confirmAction = confirmAction;
+
+// ── Prompt Modal · ดีกว่า prompt() native บน mobile ──
+// const v = await promptAction({title, body, defaultValue, placeholder, okLabel, type})
+function promptAction(opts) {
+  return new Promise(resolve => {
+    const {
+      title = 'กรอกค่า',
+      body = '',
+      defaultValue = '',
+      placeholder = '',
+      okLabel = 'ตกลง',
+      cancelLabel = 'ยกเลิก',
+      type = 'text',  // text | number | date | tel
+      inputMode = '', // numeric | decimal | tel
+    } = opts || {};
+    const old = document.getElementById('pmt-act-bg');
+    if (old) old.remove();
+
+    const bg = document.createElement('div');
+    bg.id = 'pmt-act-bg';
+    bg.style.cssText = `
+      position: fixed; inset: 0;
+      background: rgba(20,12,6,0.7);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      z-index: 99999;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+      animation: cfActFade 0.18s ease-out;
+    `;
+    bg.innerHTML = `
+      <div id="pmt-act-card" style="
+        background: linear-gradient(180deg, #faf3df 0%, #f0e4c0 100%);
+        border: 2px solid #6b4423;
+        border-radius: 14px;
+        padding: 22px 20px 18px;
+        max-width: 360px; width: 100%;
+        box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+        font-family: 'Sarabun', sans-serif;
+        animation: cfActPop 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
+      ">
+        <div style="
+          font-family: 'Cinzel', serif; font-size: 17px; font-weight: 800;
+          color: #3a2010; text-align: center;
+          margin-bottom: 10px; letter-spacing: 1px;
+        ">${title}</div>
+        ${body ? `<div style="
+          font-size: 13px; color: #3a2010; line-height: 1.55;
+          text-align: center; margin-bottom: 14px;
+        ">${body}</div>` : ''}
+        <input id="pmt-act-input" type="${type}"
+          ${inputMode ? `inputmode="${inputMode}"` : ''}
+          value="${defaultValue.replace(/"/g, '&quot;')}"
+          placeholder="${placeholder.replace(/"/g, '&quot;')}"
+          style="
+            width: 100%; box-sizing: border-box;
+            padding: 12px 14px;
+            border: 1.5px solid #6b4423;
+            border-radius: 8px;
+            background: #fff;
+            color: #3a2010;
+            font-size: 16px; font-weight: 600;
+            font-family: inherit;
+            outline: none;
+            margin-bottom: 18px;
+          "
+        />
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <button id="pmt-act-cancel" style="
+            background: linear-gradient(180deg, #e8dab0, #c8a878);
+            border: 1.5px solid #6b4423; color: #3a2010;
+            padding: 13px 12px; border-radius: 8px;
+            font-size: 15px; font-weight: 700;
+            cursor: pointer; font-family: inherit;
+            box-shadow: 0 2px 0 #6b4423, inset 0 1px 0 rgba(255,255,255,0.5);
+            touch-action: manipulation;
+          ">${cancelLabel}</button>
+          <button id="pmt-act-ok" style="
+            background: linear-gradient(180deg, #3a6b1a 0%, #1f3d0a 100%);
+            border: 1.5px solid #1f3d0a; color: white;
+            padding: 13px 8px; border-radius: 8px;
+            font-size: 15px; font-weight: 800;
+            cursor: pointer; font-family: inherit;
+            box-shadow: 0 2px 0 #1f3d0a, inset 0 1px 0 rgba(255,255,255,0.25);
+            touch-action: manipulation;
+          ">${okLabel}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(bg);
+    const inp = document.getElementById('pmt-act-input');
+    setTimeout(() => { try { inp.focus(); inp.select(); } catch(e) {} }, 50);
+
+    const close = (val) => {
+      bg.style.animation = 'cfActFade 0.15s ease-out reverse';
+      setTimeout(() => { bg.remove(); resolve(val); }, 150);
+    };
+    document.getElementById('pmt-act-cancel').onclick = () => { if (typeof haptic === 'function') haptic(8); close(null); };
+    document.getElementById('pmt-act-ok').onclick = () => { if (typeof haptic === 'function') haptic(15); close(inp.value); };
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); close(inp.value); }
+      if (e.key === 'Escape') { close(null); }
+    });
+    bg.onclick = (e) => { if (e.target === bg) close(null); };
+  });
+}
+window.promptAction = promptAction;
+
+// ── Long-press helper · ใช้ได้ทั้ง iOS + Android ──
+// Threshold = 450ms · ขยับเกิน 10px = ยกเลิก (ถือว่าเป็น scroll)
+function attachLongPress(el, callback) {
+  if (!el || el._lpAttached) return;
+  el._lpAttached = true;
+  let timer = null, startX = 0, startY = 0, fired = false;
+
+  const start = (e) => {
+    fired = false;
+    const t = e.touches ? e.touches[0] : e;
+    startX = t.clientX;
+    startY = t.clientY;
+    timer = setTimeout(() => {
+      fired = true;
+      if (typeof haptic === 'function') haptic(25);
+      callback(e, { x: t.clientX, y: t.clientY });
+    }, 450);
+  };
+  const move = (e) => {
+    if (!timer) return;
+    const t = e.touches ? e.touches[0] : e;
+    const dx = Math.abs(t.clientX - startX);
+    const dy = Math.abs(t.clientY - startY);
+    if (dx > 10 || dy > 10) { clearTimeout(timer); timer = null; }
+  };
+  const end = (e) => {
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (fired) {
+      // long-press triggered → ยกเลิก click ปกติ
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+  const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+
+  el.addEventListener('touchstart', start, { passive: true });
+  el.addEventListener('touchmove', move, { passive: true });
+  el.addEventListener('touchend', end);
+  el.addEventListener('touchcancel', cancel);
+  // รองรับ desktop ด้วย (mouse hold)
+  el.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    if (typeof haptic === 'function') haptic(25);
+    callback(e, { x: e.clientX, y: e.clientY });
+  });
+}
+
+// ── Context menu popup ──
+// ใช้: showContextMenu({x, y, items: [{icon, label, onClick, danger?}]})
+function showContextMenu(opts) {
+  const { x = 0, y = 0, items = [] } = opts || {};
+  const old = document.getElementById('ctx-menu-bg');
+  if (old) old.remove();
+  if (!items.length) return;
+
+  const bg = document.createElement('div');
+  bg.id = 'ctx-menu-bg';
+  bg.style.cssText = `
+    position: fixed; inset: 0; z-index: 99998;
+    background: rgba(0,0,0,0.18);
+    animation: ctxFade 0.12s ease-out;
+  `;
+  // จัดตำแหน่ง — ถ้าใกล้ขอบให้กลับมา
+  const w = 220;
+  const itemH = 48;
+  const h = items.length * itemH + 12;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let mx = x - w / 2;
+  let my = y - h - 12; // เปิดเหนือจุดกด
+  if (mx < 12) mx = 12;
+  if (mx + w > vw - 12) mx = vw - w - 12;
+  if (my < 60) my = y + 16; // ถ้าไม่พอด้านบน เปิดด้านล่าง
+  if (my + h > vh - 12) my = vh - h - 12;
+
+  const itemsHtml = items.map((it, i) => `
+    <div class="ctx-item" data-idx="${i}" style="
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; cursor: pointer;
+      color: ${it.danger ? '#7a1a0d' : '#3a2010'};
+      font-size: 15px; font-weight: 600;
+      border-bottom: 1px solid rgba(107,68,35,0.12);
+      transition: background 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    ">
+      <span style="font-size: 18px; width: 22px; text-align: center;">${it.icon || '·'}</span>
+      <span>${it.label}</span>
+    </div>
+  `).join('');
+
+  bg.innerHTML = `
+    <style>
+      @keyframes ctxFade { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes ctxPop {
+        from { transform: scale(0.85); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+      #ctx-menu { animation: ctxPop 0.16s cubic-bezier(0.34, 1.4, 0.64, 1); transform-origin: center bottom; }
+      #ctx-menu .ctx-item:active { background: rgba(107,68,35,0.14); }
+      #ctx-menu .ctx-item:last-child { border-bottom: 0; }
+    </style>
+    <div id="ctx-menu" style="
+      position: absolute; top: ${my}px; left: ${mx}px;
+      width: ${w}px;
+      background: linear-gradient(180deg, #faf3df 0%, #f0e4c0 100%);
+      border: 1.5px solid #6b4423;
+      border-radius: 12px;
+      box-shadow: 0 14px 32px rgba(0,0,0,0.45);
+      overflow: hidden;
+      font-family: 'Sarabun', sans-serif;
+    ">${itemsHtml}</div>
+  `;
+  document.body.appendChild(bg);
+
+  const close = () => {
+    bg.style.animation = 'ctxFade 0.1s ease-out reverse';
+    setTimeout(() => bg.remove(), 100);
+  };
+  bg.onclick = (e) => {
+    if (e.target === bg) { close(); return; }
+    const itEl = e.target.closest('.ctx-item');
+    if (itEl) {
+      const idx = +itEl.dataset.idx;
+      close();
+      setTimeout(() => { try { items[idx].onClick(); } catch(err) { console.error(err); } }, 110);
+    }
+  };
+}
+window.attachLongPress = attachLongPress;
+window.showContextMenu = showContextMenu;
 
 function totalKgOf(r) {
   return (Number(r.baskets) * Number(r.kgPer) || 0) + (Number(r.extra) || 0);
@@ -12154,6 +12670,9 @@ function switchView(v) {
   if (ribbons) ribbons.style.display = isForm ? 'none' : '';
   if (headerTabs) headerTabs.style.display = isForm ? 'none' : '';
   cornerCurl.forEach(c => { c.style.display = isForm ? 'none' : ''; });
+  // ซ่อนปุ่ม "บิล" (ถ่ายภาพบิล) ตอนอยู่หน้า list — กลับมาแสดงตอน tab อื่น
+  const camBtn = document.querySelector('.brand-cam-btn');
+  if (camBtn) camBtn.style.display = (v === 'list') ? 'none' : '';
   if (v === 'list') renderList();
   if (v === 'summary') renderSummary();
   // sync vintage ribbon
@@ -12186,7 +12705,7 @@ function renderRows() {
     const isEmpty = !r.grade && !r.baskets && !r.extra;
     return `
       <tr class="${isEmpty ? 'empty-line' : ''}" data-id="${r.id}">
-        <td><input class="cell-input grade" placeholder="—" value="${r.grade}"
+        <td><input class="cell-input grade" placeholder="—" value="${escapeHtml(r.grade||'')}"
              oninput="updateRow('${r.id}','grade',this.value)"></td>
         <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.baskets}"
              oninput="updateRow('${r.id}','baskets',this.value)"></td>
@@ -12314,7 +12833,7 @@ function renderSold() {
     const sign = (n) => n > 0 ? '+' + fmt(n) : fmt(n);
     return `
       <tr data-soldid="${r.id}">
-        <td><div class="cell-calc grade">${r.grade}</div></td>
+        <td><div class="cell-calc grade">${escapeHtml(r.grade||'')}</div></td>
         <td><div class="cell-calc" data-skg="${r.id}">${fmt(kg)}</div></td>
         <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.soldPrice}"
              oninput="updateRow('${r.id}','soldPrice',this.value)"></td>
@@ -13612,9 +14131,16 @@ function addPlanGrade() {
   renderPlanGrades();
   renderPlanDays();
 }
-function delPlanGrade(idx) {
+async function delPlanGrade(idx) {
   if (planGrades.length <= 1) { toast('ต้องมีเบอร์อย่างน้อย 1 ตัว'); return; }
-  if (!confirm(`ลบเบอร์ "${planGrades[idx]}"?`)) return;
+  const ok = await confirmAction({
+    title: 'ลบเบอร์?',
+    body: `ลบเบอร์ <b>"${gbEscapeHtml(planGrades[idx])}"</b> และข้อมูลของวันทั้งหมด`,
+    okLabel: '🗑 ลบ',
+    cancelLabel: 'ยกเลิก',
+    danger: true,
+  });
+  if (!ok) return;
   planGrades.splice(idx, 1);
   planDays.forEach(d => d.rows.splice(idx, 1));
   renderPlanGrades();
@@ -13719,11 +14245,18 @@ function addPlanDayBtn() {
   renderPlanDays();
 }
 
-function delPlanDay(id) {
+async function delPlanDay(id) {
   const d = planDays.find(x => x.id === id);
   if (!d) return;
   if (d.type === 'real') { toast('ลบวันแรกไม่ได้'); return; }
-  if (!confirm('ลบวันนี้?')) return;
+  const ok = await confirmAction({
+    title: 'ลบวันนี้?',
+    body: 'ลบวันที่วางแผน + ราคาประเมินของวันนี้',
+    okLabel: '🗑 ลบ',
+    cancelLabel: 'ยกเลิก',
+    danger: true,
+  });
+  if (!ok) return;
   planDays = planDays.filter(x => x.id !== id);
   renderPlanDays();
 }
@@ -13892,7 +14425,7 @@ function renderPlanDayCard(d, dayIdx) {
     const pctVal = isReal ? '' : (r.pct !== '' && r.pct !== null && r.pct !== undefined ? r.pct : '');
     return `
       <tr data-pdid="${d.id}" data-pridx="${ri}">
-        <td class="grade-cell">${r.grade}</td>
+        <td class="grade-cell">${escapeHtml(r.grade||'')}</td>
         <td><input class="cell-input" type="number" inputmode="decimal" placeholder="0" value="${r.baskets}" data-pbk
              oninput="updatePlanRow('${d.id}',${ri},'baskets',this.value)"></td>
         ${isReal ? `
@@ -14561,9 +15094,18 @@ function loadQuote(id) {
   switchView('new');
 }
 
-function delQuote(id, ev) {
+async function delQuote(id, ev) {
   ev.stopPropagation();
-  if (!confirm('ลบใบนี้?')) return;
+  const q = state.quotes.find(x => x.id === id);
+  const name = q && q.customer ? q.customer : 'รายการนี้';
+  const ok = await confirmAction({
+    title: 'ลบรายการตีราคา?',
+    body: `คุณต้องการลบ <b>${gbEscapeHtml(name)}</b> ใช่ไหม?<br><br><span style="color:#7a1a0d;font-size:13px;">การลบเป็นการถาวร · ไม่สามารถกู้คืนได้</span>`,
+    okLabel: '🗑 ลบ',
+    cancelLabel: 'ยกเลิก',
+    danger: true,
+  });
+  if (!ok) return;
   state.quotes = state.quotes.filter(x => x.id !== id);
   persist();
   renderList();
@@ -14880,7 +15422,7 @@ function renderList() {
           <button class="lc-act lc-del" onclick="delQuote('${q.id}', event)" title="ลบ">ลบ</button>
         </div>
         <div class="list-card-top">
-          <div><span class="lc-name">${q.customer || '—'}</span><span class="lc-fruit">${q.fruit||''}</span></div>
+          <div><span class="lc-name">${escapeHtml(q.customer || '—')}</span><span class="lc-fruit">${escapeHtml(q.fruit||'')}</span></div>
           <div class="lc-date">${fmtDate(q.date)}</div>
         </div>
         <div class="list-card-bot">
@@ -14889,6 +15431,27 @@ function renderList() {
         </div>
       </div>`;
   }).join('');
+  // attach long-press context menu
+  setTimeout(() => {
+    document.querySelectorAll('#quote-list-container .list-card').forEach(card => {
+      const onclick = card.getAttribute('onclick') || '';
+      const m = onclick.match(/loadQuote\('([^']+)'\)/);
+      if (!m) return;
+      const qid = m[1];
+      attachLongPress(card, (e, pos) => {
+        const q = state.quotes.find(x => x.id === qid);
+        if (!q) return;
+        showContextMenu({
+          x: pos.x, y: pos.y,
+          items: [
+            { icon: '✏️', label: 'เปิด/แก้ไข', onClick: () => loadQuote(qid) },
+            { icon: '📋', label: 'ทำสำเนา', onClick: () => duplicateQuote(qid, { stopPropagation: () => {} }) },
+            { icon: '🗑️', label: 'ลบใบนี้', danger: true, onClick: () => delQuote(qid, { stopPropagation: () => {} }) },
+          ]
+        });
+      });
+    });
+  }, 30);
 }
 
 function renderSummary() {
@@ -14950,11 +15513,18 @@ function importData(ev) {
   const file = ev.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
       const data = JSON.parse(e.target.result);
       if (!Array.isArray(data)) throw new Error('format');
-      if (!confirm(`Import ${data.length} ใบ?`)) return;
+      const ok = await confirmAction({
+        title: 'นำเข้าข้อมูล?',
+        body: `จะนำเข้า <b>${data.length} ใบ</b> ที่ยังไม่มีในระบบ`,
+        okLabel: '✓ นำเข้า',
+        cancelLabel: 'ยกเลิก',
+        danger: false,
+      });
+      if (!ok) return;
       const existing = new Set(state.quotes.map(q => q.id));
       data.forEach(q => { if (!existing.has(q.id)) state.quotes.push(q); });
       persist();
@@ -14965,9 +15535,23 @@ function importData(ev) {
   reader.readAsText(file);
   ev.target.value = '';
 }
-function confirmClear() {
-  if (!confirm('ล้างข้อมูลทั้งหมด?')) return;
-  if (!confirm('ยืนยันอีกครั้ง — ข้อมูลจะหายหมด')) return;
+async function confirmClear() {
+  const ok1 = await confirmAction({
+    title: 'ล้างข้อมูลทั้งหมด?',
+    body: 'การลบทั้งหมดจะล้างใบตีราคา <b>ทั้งหมด</b> ของบัญชีนี้',
+    okLabel: '🗑 ล้างทั้งหมด',
+    cancelLabel: 'ยกเลิก',
+    danger: true,
+  });
+  if (!ok1) return;
+  const ok2 = await confirmAction({
+    title: 'ยืนยันอีกครั้ง',
+    body: 'ข้อมูล <b>จะหายถาวร</b> · ไม่สามารถกู้คืนได้',
+    okLabel: '🗑 ยืนยันลบ',
+    cancelLabel: 'ยกเลิก',
+    danger: true,
+  });
+  if (!ok2) return;
   state.quotes = [];
   persist();
   toast('ล้างแล้ว');
@@ -15055,7 +15639,17 @@ function loadGardens() {
   catch(e) { return []; }
 }
 function saveGardens(g) {
-  localStorage.setItem(KEY_GARDENS, JSON.stringify(g));
+  try {
+    localStorage.setItem(KEY_GARDENS, JSON.stringify(g));
+  } catch(e) {
+    console.error('saveGardens error:', e);
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      if (typeof toast === 'function') toast('⚠ พื้นที่เต็ม — ลบรูปเก่าก่อน');
+    } else {
+      if (typeof toast === 'function') toast('⚠ บันทึกไม่สำเร็จ');
+    }
+    return;
+  }
   // Mark all current gardens as dirty (sync engine จะตัดสินเองว่า push อันไหน ตาม updated_at)
   if (typeof cloudOnLocalChange === 'function') cloudOnLocalChange('gardens');
 }
@@ -15064,7 +15658,17 @@ function loadNotes() {
   catch(e) { return []; }
 }
 function saveNotes(n) {
-  localStorage.setItem(KEY_NOTES, JSON.stringify(n));
+  try {
+    localStorage.setItem(KEY_NOTES, JSON.stringify(n));
+  } catch(e) {
+    console.error('saveNotes error:', e);
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      if (typeof toast === 'function') toast('⚠ พื้นที่เต็ม — ลบโน้ตเก่าก่อน');
+    } else {
+      if (typeof toast === 'function') toast('⚠ บันทึกไม่สำเร็จ');
+    }
+    return;
+  }
   if (typeof cloudOnLocalChange === 'function') cloudOnLocalChange('notes');
 }
 
@@ -15075,6 +15679,7 @@ const CLOUD_LAST_SYNC_KEY = 'thodsapon_cloud_last_sync';
 const CLOUD_DIRTY_KEY = 'thodsapon_cloud_dirty';
 let _cloudSyncTimer = null;
 let _cloudSyncInProgress = false;
+let _cloudSyncStartedAt = 0;
 let _cloudKnownIds = null; // Set ของ id ที่เคยเห็นใน cloud (ตรวจ delete)
 
 function cloudGetLastSync() {
@@ -15191,19 +15796,33 @@ function cloudScheduleSync(delayMs) {
 }
 
 // เริ่ม sync interval (เรียกหลัง login)
+let _cloudSyncLoopHandle = null;
 function cloudStartSyncLoop() {
   if (!window.SUPA_CONFIG.enabled) return;
+  // ป้องกัน duplicate (ถ้าเรียกซ้ำ — clear ของเก่าก่อน)
+  if (_cloudSyncLoopHandle) {
+    clearInterval(_cloudSyncLoopHandle);
+    _cloudSyncLoopHandle = null;
+  }
   // sync แรกทันที
   cloudScheduleSync(500);
   // วนทุก N วิ
-  setInterval(() => {
+  _cloudSyncLoopHandle = setInterval(() => {
     cloudScheduleSync(0);
   }, window.SUPA_CONFIG.syncIntervalMs);
 }
 
 // ── Sync once · push dirty + pull updated ──
 async function cloudSyncOnce() {
-  if (_cloudSyncInProgress) return;
+  if (_cloudSyncInProgress) {
+    // safety: ถ้า lock ค้าง > 60 วิ → force release
+    if (_cloudSyncStartedAt && Date.now() - _cloudSyncStartedAt > 60000) {
+      console.warn('[cloud] sync lock stuck > 60s, forcing release');
+      _cloudSyncInProgress = false;
+    } else {
+      return;
+    }
+  }
   if (!window.supaReady) return;
   if (typeof currentUser === 'undefined' || !currentUser) return; // ยังไม่ login
   if (!navigator.onLine) {
@@ -15212,6 +15831,7 @@ async function cloudSyncOnce() {
     return;
   }
   _cloudSyncInProgress = true;
+  _cloudSyncStartedAt = Date.now();
   _cloudStatus = 'syncing';
   cloudUpdateIndicator();
 
@@ -15820,7 +16440,9 @@ function playSlamAnimation(text, color) {
   // animation overlay
   const overlay = document.createElement('div');
   overlay.className = 'stamp-slam-overlay ' + color;
-  overlay.innerHTML = `<div class="stamp-slam">${text}</div>`;
+  // แม้ text จะเป็น hard-coded · escape ไว้กันเหนียว ถ้ามี caller ใหม่ส่ง user input
+  const safeText = String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  overlay.innerHTML = `<div class="stamp-slam">${safeText}</div>`;
   document.body.appendChild(overlay);
   // confetti burst around stamp
   const burstDelay = 280;
@@ -15928,6 +16550,132 @@ window.confirmCloseGarden = confirmCloseGarden;
 window.contractFormConfirm = contractFormConfirm;
 window.confirmContractForm = confirmContractForm;
 window.playSlamAnimation = playSlamAnimation;
+
+// ════════════════════════════════════════════
+//  ARCHIVE SYSTEM · auto + manual archive
+// ════════════════════════════════════════════
+const ARCHIVE_THRESHOLD_DAYS = 730; // 2 ปี
+const ARCHIVE_LASTRUN_KEY = 'thodsapon_archive_lastrun';
+
+function isArchived(g) {
+  return !!(g && g.archived);
+}
+
+function shouldAutoArchive(g) {
+  if (g.archived) return false;
+  if (!g.closedAt) return false;
+  const closedDate = new Date(g.closedAt).getTime();
+  if (isNaN(closedDate)) return false;
+  const ageMs = Date.now() - closedDate;
+  return ageMs > ARCHIVE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
+}
+
+function findCandidatesForArchive() {
+  return gardens.filter(g => shouldAutoArchive(g));
+}
+
+// Archive 1 สวน (manual หรือ auto)
+function archiveGarden(id, reason) {
+  const g = gardens.find(x => x.id === id);
+  if (!g) return false;
+  g.archived = true;
+  g.archivedAt = todayISO();
+  g.archivedReason = reason || 'manual';
+  return true;
+}
+
+function unarchiveGarden(id) {
+  const g = gardens.find(x => x.id === id);
+  if (!g) return false;
+  delete g.archived;
+  delete g.archivedAt;
+  delete g.archivedReason;
+  return true;
+}
+
+// ── Auto-archive routine · เรียกตอน app เปิด ──
+async function checkAutoArchive() {
+  // เช็ค throttle — รัน once/24h
+  const lastRun = Number(localStorage.getItem(ARCHIVE_LASTRUN_KEY)) || 0;
+  if (Date.now() - lastRun < 24 * 60 * 60 * 1000) return;
+
+  const candidates = findCandidatesForArchive();
+  if (candidates.length === 0) {
+    localStorage.setItem(ARCHIVE_LASTRUN_KEY, String(Date.now()));
+    return;
+  }
+
+  // ── Confirm ก่อน archive (user เลือก "ตองมี") ──
+  const ok = await confirmAction({
+    title: '📦 ที่เก็บอัตโนมัติ',
+    body: `พบ <b>${candidates.length} สวน</b> ที่ปิดมานานเกิน 2 ปี<br><br>` +
+          `<span style="font-size:13px;color:#5a3818;">จะย้ายไปยัง "ที่เก็บ" ใช่ไหม?<br>` +
+          `• ข้อมูลไม่หาย · นำกลับได้ทุกเมื่อ<br>` +
+          `• ดูได้ที่ filter chip 📦</span>`,
+    okLabel: '📦 ย้ายไปที่เก็บ',
+    cancelLabel: 'ภายหลัง',
+    danger: false,
+  });
+
+  // อัปเดต lastRun ทุกกรณี — ป้องกัน loop ถาม
+  localStorage.setItem(ARCHIVE_LASTRUN_KEY, String(Date.now()));
+
+  if (!ok) return;
+
+  let count = 0;
+  candidates.slice(0, 50).forEach(g => {
+    if (archiveGarden(g.id, 'auto')) count++;
+  });
+
+  if (count > 0) {
+    saveGardens(gardens);
+    if (typeof renderListView === 'function') renderListView();
+    toast(`📦 ย้าย ${count} สวนไปที่เก็บแล้ว`);
+  }
+}
+
+// ── Manual archive (จาก context menu) ──
+async function manualArchiveGarden(id) {
+  const g = gardens.find(x => x.id === id);
+  if (!g) return;
+  const ok = await confirmAction({
+    title: '📦 ย้ายไปที่เก็บ?',
+    body: `ย้ายสวน <b>${gbEscapeHtml(g.name||'')}</b> ไปยังที่เก็บ?<br><br>` +
+          `<span style="font-size:13px;color:#5a3818;">นำกลับขึ้นมาได้ทุกเมื่อ</span>`,
+    okLabel: '📦 ย้าย',
+    cancelLabel: 'ยกเลิก',
+    danger: false,
+  });
+  if (!ok) return;
+  archiveGarden(id, 'manual');
+  saveGardens(gardens);
+  if (typeof renderListView === 'function') renderListView();
+  if (typeof renderDetail === 'function' && currentDetailId === id) renderDetail();
+  toast('📦 ย้ายไปที่เก็บแล้ว');
+}
+
+async function manualUnarchiveGarden(id) {
+  const g = gardens.find(x => x.id === id);
+  if (!g) return;
+  unarchiveGarden(id);
+  saveGardens(gardens);
+  if (typeof renderListView === 'function') renderListView();
+  if (typeof renderDetail === 'function' && currentDetailId === id) renderDetail();
+  toast('✓ นำกลับขึ้นมาแล้ว');
+}
+
+// ── Toggle archive view (chip 📦) ──
+let _viewArchived = false;
+function toggleArchiveView() {
+  _viewArchived = !_viewArchived;
+  if (typeof renderListView === 'function') renderListView();
+}
+
+window.archiveGarden = archiveGarden;
+window.unarchiveGarden = unarchiveGarden;
+window.manualArchiveGarden = manualArchiveGarden;
+window.manualUnarchiveGarden = manualUnarchiveGarden;
+window.toggleArchiveView = toggleArchiveView;
 
 // ── Alert helpers ──
 function isOverdue(g) {
@@ -16081,12 +16829,7 @@ function fmtNum(n) {
   if (n == null || isNaN(n)) return '—';
   return Number(n).toLocaleString('th-TH');
 }
-function todayISO() {
-  const d = new Date();
-  return d.toISOString().slice(0,10);
-}
 function uid() { return 'x_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,5); }
-
 function calcDayProgress(g) {
   // Prefer openedAt (actual day garden was opened) over collectStartDate (planned)
   // because user can plan ahead but only "open" later — days elapsed should count
@@ -16368,10 +17111,15 @@ function activeFilterCount() {
   return n;
 }
 
+let _searchDebounce = null;
 function onSearchInput() {
-  searchQuery = document.getElementById('search-input').value.trim().toLowerCase();
-  // เมื่อพิมพ์ค้นหา ออกจาก tab (filter จะคุม)
-  renderListView();
+  const v = document.getElementById('search-input').value.trim().toLowerCase();
+  // debounce render — ลดกระตุกเมื่อ list ใหญ่
+  if (_searchDebounce) clearTimeout(_searchDebounce);
+  _searchDebounce = setTimeout(() => {
+    searchQuery = v;
+    renderListView();
+  }, 180);
 }
 
 function toggleFilter() {
@@ -16610,21 +17358,37 @@ function matchesFilters(g) {
 }
 
 function renderChips() {
+  // นับ active gardens (ไม่นับ archived) สำหรับ chips ปกติ
+  const active = gardens.filter(g => !isArchived(g));
+  const archivedCount = gardens.filter(g => isArchived(g)).length;
   const counts = {
-    all: gardens.length,
-    collecting: gardens.filter(g => g.status === 'collecting').length,
-    waiting: gardens.filter(g => g.status === 'waiting').length,
-    'no-contract': gardens.filter(g => g.status === 'no-contract').length,
+    all: active.length,
+    collecting: active.filter(g => g.status === 'collecting').length,
+    waiting: active.filter(g => g.status === 'waiting').length,
+    'no-contract': active.filter(g => g.status === 'no-contract').length,
     notes: notes.length,
   };
   const wrap = document.getElementById('cat-chips');
-  wrap.innerHTML = `
-    <div class="chip ${currentTab==='all'?'active':''}" onclick="switchTab('all')">ทั้งหมด <span class="count">${counts.all}</span></div>
-    <div class="chip ${currentTab==='collecting'?'active':''}" onclick="switchTab('collecting')">เปิดสวน <span class="count">${counts.collecting}</span></div>
-    <div class="chip ${currentTab==='waiting'?'active':''}" onclick="switchTab('waiting')">รอเปิดสวน <span class="count">${counts.waiting}</span></div>
-    <div class="chip ${currentTab==='no-contract'?'active':''}" onclick="switchTab('no-contract')">ยังไม่ทำสัญญา <span class="count">${counts['no-contract']}</span></div>
-    <div class="chip ${currentTab==='notes'?'active':''}" onclick="switchTab('notes')">📝 โน๊ต <span class="count">${counts.notes}</span></div>
-  `;
+  // chip ที่เก็บ — โผล่เฉพาะมีของ
+  const archChip = archivedCount > 0
+    ? `<div class="chip archive-chip ${_viewArchived?'active':''}" onclick="toggleArchiveView()" title="ที่เก็บ — สวนปิดเกิน 2 ปี">📦 ที่เก็บ <span class="count">${archivedCount}</span></div>`
+    : '';
+  // ในโหมด archive view — ซ่อน chip ปกติ + แสดงเฉพาะ chip 📦
+  if (_viewArchived) {
+    wrap.innerHTML = `
+      <div class="chip" onclick="toggleArchiveView()">← กลับ</div>
+      ${archChip}
+    `;
+  } else {
+    wrap.innerHTML = `
+      <div class="chip ${currentTab==='all'?'active':''}" onclick="switchTab('all')">ทั้งหมด <span class="count">${counts.all}</span></div>
+      <div class="chip ${currentTab==='collecting'?'active':''}" onclick="switchTab('collecting')">เปิดสวน <span class="count">${counts.collecting}</span></div>
+      <div class="chip ${currentTab==='waiting'?'active':''}" onclick="switchTab('waiting')">รอเปิดสวน <span class="count">${counts.waiting}</span></div>
+      <div class="chip ${currentTab==='no-contract'?'active':''}" onclick="switchTab('no-contract')">ยังไม่ทำสัญญา <span class="count">${counts['no-contract']}</span></div>
+      <div class="chip ${currentTab==='notes'?'active':''}" onclick="switchTab('notes')">📝 โน๊ต <span class="count">${counts.notes}</span></div>
+      ${archChip}
+    `;
+  }
 }
 
 function renderListView() {
@@ -16633,9 +17397,14 @@ function renderListView() {
 
   // ซ่อนปุ่มเฟือง (ตั้งค่าเล่มสวน) ถ้าไม่ใช่ admin
   const bsetBtn = document.getElementById('gv-bset-btn-toggle');
+  const isAdmin = (currentUser && currentUser.role === 'admin');
   if (bsetBtn) {
-    bsetBtn.style.display = (currentUser && currentUser.role === 'admin') ? '' : 'none';
+    bsetBtn.style.display = isAdmin ? '' : 'none';
   }
+  // ปรับตำแหน่ง cam-btn ตามว่ามีปุ่มเฟืองหรือไม่
+  document.querySelectorAll('#garden-view .ph .cam-btn').forEach(btn => {
+    btn.style.right = isAdmin ? '44px' : '0';
+  });
 
   // sync filter button visual
   const ftBtn = document.getElementById('filter-toggle');
@@ -16651,7 +17420,7 @@ function renderListView() {
   if (aWrap) {
     const lines = [];
     if (alerts.overdue.length) {
-      lines.push(`<div class="alert-line" onclick="filterByAlert('overdue')"><span class="ico">⚠️</span><strong>${alerts.overdue.length} สวนเลยกำหนดเก็บ</strong> — ${alerts.overdue.slice(0,2).map(g=>g.name).join(', ')}${alerts.overdue.length>2?'...':''}</div>`);
+      lines.push(`<div class="alert-line" onclick="filterByAlert('overdue')"><span class="ico">⚠️</span><strong>${alerts.overdue.length} สวนเลยกำหนดเก็บ</strong> — ${alerts.overdue.slice(0,2).map(g=>gbEscapeHtml(g.name||'')).join(', ')}${alerts.overdue.length>2?'...':''}</div>`);
     }
     if (alerts.unpaid.length) {
       const totalUnpaid = alerts.unpaid.reduce((s,g) => s + unpaidAmount(g), 0);
@@ -16704,6 +17473,14 @@ function renderListView() {
   }
 
   let list = gardens;
+  // ── Archive filter ──
+  // ปกติ — ซ่อน archived
+  // ถ้า _viewArchived = true → แสดงเฉพาะ archived
+  if (_viewArchived) {
+    list = list.filter(g => isArchived(g));
+  } else {
+    list = list.filter(g => !isArchived(g));
+  }
   if (currentTab !== 'all') list = list.filter(g => g.status === currentTab);
   // alert filter
   if (window._alertFilter === 'overdue') list = list.filter(isOverdue);
@@ -16823,7 +17600,7 @@ function renderListView() {
                : '';
 
     return `
-      <div class="garden-card ${g.status} lc-v3 ${sCls}" onclick="openDetail('${g.id}')">
+      <div class="garden-card ${g.status} lc-v3 ${sCls}${isArchived(g)?' archived':''}" onclick="openDetail('${g.id}')">
         <div class="lc-row1">
           <div class="lc-name-block">
             <span class="lc-name">${gbEscapeHtml(g.name||'')}</span>
@@ -16841,6 +17618,34 @@ function renderListView() {
     `;
   }).join('') + '</div>' + renderNotesPreviewHtml();
   setupNotesPreviewScrollHide();
+  // attach long-press context menu บนการ์ดสวน
+  setTimeout(() => {
+    document.querySelectorAll('#garden-view .garden-card.lc-v3').forEach(card => {
+      const onclick = card.getAttribute('onclick') || '';
+      const m = onclick.match(/openDetail\('([^']+)'\)/);
+      if (!m) return;
+      const gid = m[1];
+      attachLongPress(card, (e, pos) => {
+        const g = gardens.find(x => x.id === gid);
+        if (!g) return;
+        const items = [
+          { icon: '📂', label: 'เปิดดู', onClick: () => openDetail(gid) },
+          { icon: '✏️', label: 'แก้ไขสัญญา', onClick: () => openGardenForm(gid) },
+        ];
+        // archive option — โผล่เฉพาะสวนที่ปิดแล้ว
+        if (isArchived(g)) {
+          items.push({ icon: '↑', label: 'นำกลับขึ้นมา', onClick: () => manualUnarchiveGarden(gid) });
+        } else if (g.status === 'done' || g.closedAt) {
+          items.push({ icon: '📦', label: 'ย้ายไปที่เก็บ', onClick: () => manualArchiveGarden(gid) });
+        }
+        items.push({ icon: '🗑️', label: 'ลบสวน', danger: true, onClick: () => delGarden(gid) });
+        showContextMenu({
+          x: pos.x, y: pos.y,
+          items
+        });
+      });
+    });
+  }, 30);
 }
 
 // ── Notes Preview · Sticky Stack (สูงสุด 4 · ใต้ list) ──
@@ -16976,6 +17781,26 @@ function renderNotes(body) {
       <div class="note-add" onclick="openNoteForm()">+ เพิ่มโน๊ต</div>
     </div>
   `;
+  // attach long-press context menu บน note
+  setTimeout(() => {
+    body.querySelectorAll('.note').forEach(noteEl => {
+      const onclick = noteEl.getAttribute('onclick') || '';
+      const m = onclick.match(/openNoteForm\('([^']+)'\)/);
+      if (!m) return;
+      const nid = m[1];
+      attachLongPress(noteEl, (e, pos) => {
+        const n = notes.find(x => x.id === nid);
+        if (!n) return;
+        showContextMenu({
+          x: pos.x, y: pos.y,
+          items: [
+            { icon: '✏️', label: 'แก้ไข', onClick: () => openNoteForm(nid) },
+            { icon: '🗑️', label: 'ลบโน้ต', danger: true, onClick: () => delNote(nid) },
+          ]
+        });
+      });
+    });
+  }, 30);
 }
 
 function gbEscapeHtml(s) {
@@ -17107,9 +17932,20 @@ function renderDetail() {
       <button class="gv-back-btn" onclick="smartBack()" title="กลับ"><span class="gvb-arr">←</span><span>กลับ</span></button>
       <button class="cam-btn" onclick="openCamPicker()" title="ถ่ายบิล"><span class="cam-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8 H7 L9 5 H15 L17 8 H20 V19 H4 Z" stroke-linejoin="round"/><circle cx="12" cy="13.5" r="3.5"/></svg></span><span>บิล</span></button>
       ${stampDetail}
-      <div class="title-th">${g.name}</div>
-      <div class="sub">${g.fruit||'—'} · ${STATUS_LABEL[g.status]}</div>
+      <div class="title-th">${gbEscapeHtml(g.name||'')}</div>
+      <div class="sub">${gbEscapeHtml(g.fruit||'—')} · ${STATUS_LABEL[g.status]}</div>
     </div>
+
+    ${isArchived(g) ? `
+      <div class="archive-banner">
+        <div class="ico">📦</div>
+        <div class="body">
+          <div class="title">สวนนี้อยู่ในที่เก็บ</div>
+          <div class="meta">${g.archivedReason==='auto'?'ย้ายอัตโนมัติ':'ย้ายเอง'} · ${gbEscapeHtml(g.archivedAt||'—')}</div>
+        </div>
+        <button onclick="manualUnarchiveGarden('${g.id}')">↑ นำกลับ</button>
+      </div>
+    ` : ''}
 
     <div id="sub-summary" class="sub-content ${currentDetailTab==='summary'?'active':''}">
       ${(() => {
@@ -17613,13 +18449,13 @@ function openGardenForm(id) {
           <label>ชื่อเล่น</label>
           <input id="gf-nickname" value="${gbEscapeHtml(g.nickname||g.owner||'')}" placeholder="ป้าแดง">
           <label>เบอร์</label>
-          <input id="gf-phone" value="${gbEscapeHtml(g.phone||'')}">
+          <input id="gf-phone" type="tel" inputmode="tel" autocomplete="tel" value="${gbEscapeHtml(g.phone||'')}">
         </div>
 
         <div class="d-subheader">ที่ตั้ง</div>
         <div class="d-grid">
           <label>Google Map</label>
-          <input id="gf-mapurl" value="${gbEscapeHtml(g.mapUrl||'')}" placeholder="https://maps.google.com/...">
+          <input id="gf-mapurl" type="url" inputmode="url" value="${gbEscapeHtml(g.mapUrl||'')}" placeholder="https://maps.google.com/...">
           <label>จังหวัด</label>
           <input id="gf-province" value="${gbEscapeHtml(g.province||'')}" placeholder="เชียงใหม่">
           <label>อำเภอ</label>
@@ -17641,7 +18477,7 @@ function openGardenForm(id) {
         </div>
         <div class="d-grid">
           <label>กำหนดเก็บ</label>
-          <input id="gf-start" type="date" value="${g.collectStartDate||''}">
+          <input id="gf-start" type="date" value="${gbEscapeHtml(g.collectStartDate||'')}">
           <label>สถานะ</label>
           <div class="status-grid">
             <div class="status-opt" data-st="no-contract">
@@ -17689,12 +18525,12 @@ function openGardenForm(id) {
             <div class="combo-stack">
               <div class="combo-input">
                 <span class="combo-mini-lbl">ราคาเหมา</span>
-                <input id="gf-lump-total" type="number" inputmode="decimal" value="${g.lumpTotal||''}" placeholder="100000" oninput="updateRemaining();updateCostPerKg()">
+                <input id="gf-lump-total" type="number" inputmode="decimal" value="${g.lumpTotal!=null?Number(g.lumpTotal):''}" placeholder="100000" oninput="updateRemaining();updateCostPerKg()">
                 <span class="combo-unit">บ.</span>
               </div>
               <div class="combo-input">
                 <span class="combo-mini-lbl">น้ำหนักคาด</span>
-                <input id="gf-expected-kg" type="number" inputmode="decimal" value="${g.expectedKg||''}" placeholder="คาดว่าจะได้กี่ กก." oninput="updateCostPerKg()">
+                <input id="gf-expected-kg" type="number" inputmode="decimal" value="${g.expectedKg!=null?Number(g.expectedKg):''}" placeholder="คาดว่าจะได้กี่ กก." oninput="updateCostPerKg()">
                 <span class="combo-unit">กก.</span>
               </div>
             </div>
@@ -17709,10 +18545,10 @@ function openGardenForm(id) {
             </div>
             <label>มัดจำ</label>
             <div class="deposit-stack">
-              <input id="gf-deposit" type="number" inputmode="decimal" value="${g.deposit||''}" placeholder="20000" oninput="updateRemaining()">
+              <input id="gf-deposit" type="number" inputmode="decimal" value="${g.deposit!=null?Number(g.deposit):''}" placeholder="20000" oninput="updateRemaining()">
               <div class="date-line">
                 <span>วันที่:</span>
-                <input id="gf-deposit-date" type="date" value="${g.depositDate||todayISO()}">
+                <input id="gf-deposit-date" type="date" value="${gbEscapeHtml(g.depositDate||todayISO())}">
               </div>
             </div>
             <label>ยอดคงเหลือ</label>
@@ -17727,21 +18563,21 @@ function openGardenForm(id) {
             <div class="combo-stack">
               <div class="combo-input">
                 <span class="combo-mini-lbl">กิโลละ</span>
-                <input id="gf-kg-price" type="number" inputmode="decimal" value="${g.kgPrice||''}" placeholder="38">
+                <input id="gf-kg-price" type="number" inputmode="decimal" value="${g.kgPrice!=null?Number(g.kgPrice):''}" placeholder="38">
                 <span class="combo-unit">บ./กก.</span>
               </div>
               <div class="combo-input">
                 <span class="combo-mini-lbl">น้ำหนักคาด</span>
-                <input id="gf-expected-kg2" type="number" inputmode="decimal" value="${g.expectedKg||''}" placeholder="คาดว่าจะได้กี่ กก.">
+                <input id="gf-expected-kg2" type="number" inputmode="decimal" value="${g.expectedKg!=null?Number(g.expectedKg):''}" placeholder="คาดว่าจะได้กี่ กก.">
                 <span class="combo-unit">กก.</span>
               </div>
             </div>
             <label>มัดจำ</label>
             <div class="deposit-stack">
-              <input id="gf-deposit2" type="number" inputmode="decimal" value="${g.deposit||''}" placeholder="(ถ้ามี)">
+              <input id="gf-deposit2" type="number" inputmode="decimal" value="${g.deposit!=null?Number(g.deposit):''}" placeholder="(ถ้ามี)">
               <div class="date-line">
                 <span>วันที่:</span>
-                <input id="gf-deposit-date2" type="date" value="${g.depositDate||todayISO()}">
+                <input id="gf-deposit-date2" type="date" value="${gbEscapeHtml(g.depositDate||todayISO())}">
               </div>
             </div>
           </div>
@@ -17755,15 +18591,15 @@ function openGardenForm(id) {
           <div class="d-grid">
             <label>น้ำหนักคาด</label>
             <div class="combo-input">
-              <input id="gf-expected-kg3" type="number" inputmode="decimal" value="${g.expectedKg||''}" placeholder="คาดว่าจะได้กี่ กก.">
+              <input id="gf-expected-kg3" type="number" inputmode="decimal" value="${g.expectedKg!=null?Number(g.expectedKg):''}" placeholder="คาดว่าจะได้กี่ กก.">
               <span class="combo-unit">กก.</span>
             </div>
             <label>มัดจำ</label>
             <div class="deposit-stack">
-              <input id="gf-deposit3" type="number" inputmode="decimal" value="${g.deposit||''}" placeholder="(ถ้ามี)">
+              <input id="gf-deposit3" type="number" inputmode="decimal" value="${g.deposit!=null?Number(g.deposit):''}" placeholder="(ถ้ามี)">
               <div class="date-line">
                 <span>วันที่:</span>
-                <input id="gf-deposit-date3" type="date" value="${g.depositDate||todayISO()}">
+                <input id="gf-deposit-date3" type="date" value="${gbEscapeHtml(g.depositDate||todayISO())}">
               </div>
             </div>
           </div>
@@ -17927,8 +18763,19 @@ function saveGarden() {
   const id = window._editingGardenId || '';
   const g = id ? gardens.find(x => x.id === id) : null;
   const name = document.getElementById('gf-name').value.trim();
-  if (!name) { toast('ใส่ชื่อสวน'); return; }
+  if (!name) {
+    toast('ใส่ชื่อสวน');
+    const el = document.getElementById('gf-name');
+    if (el) { el.focus(); el.scrollIntoView({behavior:'smooth', block:'center'}); }
+    return;
+  }
   const fruit = document.getElementById('gf-fruit').value.trim();
+  if (!fruit) {
+    toast('ใส่ชื่อผลไม้');
+    const el = document.getElementById('gf-fruit');
+    if (el) { el.focus(); el.scrollIntoView({behavior:'smooth', block:'center'}); }
+    return;
+  }
   const status = document.querySelector('.status-opt.selected')?.dataset.st || 'no-contract';
   const dealType = document.querySelector('.deal-opt.selected')?.dataset.dt || 'lump';
   const careRating = document.querySelector('#gf-care-grid .rating-opt.selected')?.dataset.v || '';
@@ -18017,26 +18864,48 @@ function saveGarden() {
   else renderListView();
 }
 
-function delGarden(id) {
-  if (!confirm('ลบสวนนี้?')) return;
+async function delGarden(id) {
+  const g = gardens.find(x => x.id === id);
+  const name = g && g.name ? g.name : 'สวนนี้';
+  const fruit = g && g.fruit ? g.fruit : '';
+  const ncoll = g && g.collections ? g.collections.length : 0;
+  const nexp = g && g.expenses ? g.expenses.length : 0;
+  let warn = '';
+  if (ncoll > 0 || nexp > 0) {
+    warn = `<br><br><span style="color:#7a1a0d;font-size:12px;">⚠ มีบันทึกเข้าเก็บ ${ncoll} ครั้ง · ค่าใช้จ่าย ${nexp} รายการ — จะหายทั้งหมด</span>`;
+  }
+  const ok = await confirmAction({
+    title: 'ลบสวน?',
+    body: `คุณต้องการลบ <b>${gbEscapeHtml(name)}${fruit ? ' — ' + gbEscapeHtml(fruit) : ''}</b> ใช่ไหม?${warn}<br><br><span style="color:#7a1a0d;font-size:13px;">การลบเป็นการถาวร · ไม่สามารถกู้คืนได้</span>`,
+    okLabel: '🗑 ลบสวน',
+    cancelLabel: 'ยกเลิก',
+    danger: true,
+  });
+  if (!ok) return;
   gardens = gardens.filter(g => g.id !== id);
   saveGardens(gardens);
   goBack();
   toast('ลบแล้ว');
 }
 
-function setOverTarget(id) {
+async function setOverTarget(id) {
   const g = gardens.find(x => x.id === id);
   if (!g) return;
   const expectedKg = Number(g.expectedKg) || 0;
   if (!expectedKg) { toast('ใส่น้ำหนักคาดก่อน'); return; }
   const cur = g.overTarget ? String(g.overTarget) : '';
-  const msg = `ตั้งเกินเป้า (กก.)\nต้องมากกว่าเป้า ${fmtNum(expectedKg)} กก.\n\n(เว้นว่างเพื่อยกเลิก)`;
-  const inp = prompt(msg, cur);
+  const inp = await promptAction({
+    title: 'ตั้งเกินเป้า',
+    body: `ต้องมากกว่าเป้า <b>${fmtNum(expectedKg)} กก.</b><br><span style="color:#7a4a18;font-size:12px;">เว้นว่างเพื่อยกเลิก</span>`,
+    defaultValue: cur,
+    placeholder: 'เช่น 25000',
+    type: 'number',
+    inputMode: 'numeric',
+    okLabel: 'บันทึก',
+  });
   if (inp === null) return; // cancelled
-  const val = inp.trim();
+  const val = String(inp).trim();
   if (val === '') {
-    // Clear overTarget
     delete g.overTarget;
     saveGardens(gardens);
     renderDetail();
@@ -19052,7 +19921,7 @@ function renderAutoPayOwnerEntry(g, entry, isClosed) {
               <span class="ape-kg">${fmtNum(kg)}</span>
               <span class="ape-kg-unit">กก.</span>
               <span class="ape-x">×</span>
-              <input class="ape-price-input" type="number" ${inputAttrs} />
+              <input class="ape-price-input" type="number" inputmode="decimal" ${inputAttrs} />
               <span class="ape-bath-unit">บ.</span>
               <span class="ape-amt">${fmtNum(amount)}</span>
             </div>
@@ -19440,9 +20309,18 @@ function unlockExpenseDay(entryId) {
   renderDetail();
 }
 
-function delExpenseDay(entryId) {
-  if (!confirm('ลบบันทึกของวันนี้?')) return;
+async function delExpenseDay(entryId) {
   const g = gardens.find(x => x.id === currentDetailId); if (!g) return;
+  const entry = (g.expenses||[]).find(e => e.id === entryId);
+  const dateStr = entry && entry.date ? fmtDate(entry.date) : '';
+  const ok = await confirmAction({
+    title: 'ลบค่าใช้จ่าย?',
+    body: `คุณต้องการลบรายการค่าใช้จ่าย<br><b>วันที่ ${dateStr}</b> ใช่ไหม?`,
+    okLabel: '🗑 ลบ',
+    cancelLabel: 'ยกเลิก',
+    danger: true,
+  });
+  if (!ok) return;
   g.expenses = (g.expenses||[]).filter(e => e.id !== entryId);
   if (_editingExpId === entryId) _editingExpId = null;
   recomputeExpenseChain(g);
@@ -19746,7 +20624,7 @@ function cfRenderRows() {
   if (!tbody) return;
   tbody.innerHTML = _collectionRows.map((r, i) => `
     <tr>
-      <td><input class="cf-cell" value="${r.grade||''}" placeholder="—" oninput="cfUpdate(${i},'grade',this.value)"></td>
+      <td><input class="cf-cell" value="${gbEscapeHtml(r.grade||'')}" placeholder="—" oninput="cfUpdate(${i},'grade',this.value)"></td>
       <td><input class="cf-cell num" type="number" inputmode="decimal" value="${r.baskets||''}" placeholder="—" oninput="cfUpdate(${i},'baskets',this.value)"></td>
       <td><input class="cf-cell num" type="number" inputmode="decimal" value="${r.kgPer||''}" oninput="cfUpdate(${i},'kgPer',this.value)"></td>
       <td><input class="cf-cell num" type="number" inputmode="decimal" value="${r.extra||''}" placeholder="—" oninput="cfUpdate(${i},'extra',this.value)"></td>
@@ -19849,14 +20727,21 @@ function saveCollection() {
   renderDetail();
 }
 
-function delCollection(idOrDate) {
+async function delCollection(idOrDate) {
   const g = gardens.find(x => x.id === currentDetailId);
   if (!g) return;
-  if (!confirm('ลบบันทึกเข้าเก็บวันนี้?')) return;
-  // Find by id first, fall back to date for legacy
   const target = (g.collections||[]).find(c => c.id === idOrDate)
               || (g.collections||[]).find(c => c.date === idOrDate);
   if (!target) return;
+  const dateStr = target.date ? fmtDate(target.date) : '';
+  const ok = await confirmAction({
+    title: 'ลบบันทึกเข้าเก็บ?',
+    body: `คุณต้องการลบบันทึกเข้าเก็บ<br><b>วันที่ ${dateStr}</b> ใช่ไหม?<br><br><span style="color:#7a1a0d;font-size:13px;">ค่าจ่ายเจ้าของจะอัพเดตอัตโนมัติ</span>`,
+    okLabel: '🗑 ลบ',
+    cancelLabel: 'ยกเลิก',
+    danger: true,
+  });
+  if (!ok) return;
   g.collections = (g.collections||[]).filter(c => c !== target);
   if (typeof _selectedBills !== 'undefined') {
     _selectedBills.delete(target.id);
@@ -20049,8 +20934,19 @@ async function _saveNoteAsync(id, text, img, color) {
   }
 }
 
-function delNote(id, fromForm) {
-  if (!fromForm && !confirm('ลบโน๊ตนี้?')) return;
+async function delNote(id, fromForm) {
+  if (!fromForm) {
+    const note = notes.find(n => n.id === id);
+    const preview = note && note.text ? note.text.slice(0, 40) + (note.text.length > 40 ? '...' : '') : '';
+    const ok = await confirmAction({
+      title: 'ลบโน้ต?',
+      body: preview ? `<b>"${gbEscapeHtml(preview)}"</b><br><br>คุณต้องการลบโน้ตนี้ใช่ไหม?` : 'คุณต้องการลบโน้ตนี้ใช่ไหม?',
+      okLabel: '🗑 ลบ',
+      cancelLabel: 'ยกเลิก',
+      danger: true,
+    });
+    if (!ok) return;
+  }
   // เก็บ path รูปก่อนลบ (ลบจาก cloud ทีหลัง)
   const note = notes.find(n => n.id === id);
   const imgPath = note && note.img ? _photoPathFromUrl(note.img) : null;
@@ -20279,7 +21175,7 @@ function openCamPicker() {
     host.id = 'cam-fullscreen';
     document.getElementById('garden-view').appendChild(host);
   }
-  host.style.display = 'block';
+  host.style.display = 'flex';
   _camRenderPage();
 }
 function camClose() {
@@ -20799,6 +21695,37 @@ function _albumResizeFile(file, maxDim, quality) {
   maxDim = maxDim || ALBUM_MAX_DIM;
   quality = quality || ALBUM_QUALITY;
   return new Promise((resolve, reject) => {
+    // ใช้ createImageBitmap ถ้ารองรับ — จัดการ EXIF rotation อัตโนมัติ
+    if (typeof createImageBitmap === 'function') {
+      // imageOrientation: 'from-image' = อ่าน EXIF + หมุนตาม
+      createImageBitmap(file, { imageOrientation: 'from-image' })
+        .then(bitmap => {
+          let w = bitmap.width, h = bitmap.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+            else { w = Math.round(w * maxDim / h); h = maxDim; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(bitmap, 0, 0, w, h);
+          bitmap.close && bitmap.close();
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        })
+        .catch(() => {
+          // fallback: ใช้ <img>
+          _albumResizeFileFallback(file, maxDim, quality).then(resolve, reject);
+        });
+      return;
+    }
+    _albumResizeFileFallback(file, maxDim, quality).then(resolve, reject);
+  });
+}
+
+function _albumResizeFileFallback(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
@@ -20811,7 +21738,6 @@ function _albumResizeFile(file, maxDim, quality) {
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext('2d');
-        // คุณภาพ resampling สูงขึ้น (ดีกว่า nearest-neighbor default)
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, w, h);
@@ -20951,8 +21877,15 @@ function _photoPathFromUrl(url) {
   return m ? m[1] : null;
 }
 
-function albumDeletePhoto(gardenId, photoId) {
-  if (!confirm('ลบภาพนี้?')) return;
+async function albumDeletePhoto(gardenId, photoId) {
+  const ok = await confirmAction({
+    title: 'ลบภาพ?',
+    body: 'คุณต้องการลบภาพนี้ใช่ไหม?<br><br><span style="color:#7a1a0d;font-size:13px;">ภาพจะถูกลบจากทุกอุปกรณ์</span>',
+    okLabel: '🗑 ลบภาพ',
+    cancelLabel: 'ยกเลิก',
+    danger: true,
+  });
+  if (!ok) return;
   const g = gardens.find(x => x.id === gardenId); if (!g) return;
   if (!Array.isArray(g.albumPhotos)) return;
   // หา photo ก่อนลบ — เก็บ url path ไว้ลบ bucket
