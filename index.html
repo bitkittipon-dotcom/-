@@ -6766,6 +6766,48 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
   }
   #garden-view .ns-calc-cell.ns-calc-set-target .ns-add-plus { font-size: 16px; color: #8b6f3f; font-weight: 700; line-height: 1; }
   #garden-view .ns-calc-cell.ns-calc-set-target .ns-add-lbl { font-size: 9.5px; color: #6b4423; font-weight: 600; }
+  /* editable inline-edit cell */
+  #garden-view .ns-calc-cell.ns-calc-editable {
+    cursor: pointer;
+    border: 1.5px dashed rgba(107,142,61,0.55);
+    background: rgba(255,255,255,0.7);
+    position: relative;
+  }
+  #garden-view .ns-calc-cell.ns-calc-editable:hover { border-color: #6b8e3d; }
+  #garden-view .ns-calc-cell.ns-calc-editable::after {
+    content: '✏';
+    position: absolute;
+    top: 1px;
+    right: 3px;
+    font-size: 9px;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  #garden-view .ns-calc-cell.ns-calc-editing {
+    border: 2px solid #6b8e3d;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(107,142,61,0.18);
+  }
+  #garden-view .ns-calc-editor {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 800;
+    color: #2a1810;
+    padding: 0;
+    margin: 0;
+    outline: none;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  #garden-view .ns-calc-editor::-webkit-outer-spin-button,
+  #garden-view .ns-calc-editor::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
   /* Label variant — สำหรับ "เหมา/ยังไม่เสร็จ" · "เหมา/เสร็จ" */
   #garden-view .ns-cost-val.ns-cost-val-label {
     font-family: 'Sarabun', sans-serif;
@@ -9046,30 +9088,46 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     font-family: 'Sarabun', sans-serif;
   }
     #garden-view .stamp-card.closed {
-    /* Overlay style — C4 Soft Ink Bleed, ลดขนาด 35% · forced overrides */
+    /* Design A — Rubber Stamp (no blur, +20% from preview) */
     position: absolute !important;
-    top: 42% !important;
-    left: 50% !important;
-    right: auto !important;
-    display: block !important;
-    transform: translate(-50%, -50%) rotate(-5deg) !important;
-    font-family: 'Cinzel', serif;
-    font-size: 25px;
-    font-weight: 900;
-    letter-spacing: 3px;
-    color: rgba(0,0,0,0.5);
-    background: transparent;
-    border: 2.5px solid rgba(0,0,0,0.5);
-    border-radius: 3px;
-    padding: 2px 13px;
-    pointer-events: none;
-    white-space: nowrap;
+    top: 50% !important;
+    left: auto !important;
+    right: 10px !important;
+    display: inline-block !important;
+    transform: translateY(-50%) rotate(-7deg) !important;
+    font-family: 'Sarabun', sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 900 !important;
+    letter-spacing: 1.8px !important;
+    color: rgba(107,24,24,0.7) !important;
+    background: transparent !important;
+    border: 1.5px solid rgba(107,24,24,0.7) !important;
+    border-radius: 2px !important;
+    padding: 3px 10px !important;
+    pointer-events: none !important;
+    white-space: nowrap !important;
     margin: 0 !important;
     flex: none !important;
     align-self: auto !important;
     z-index: 5;
-    filter: blur(0.3px);
-    text-shadow: 1.5px 1px 1px rgba(0,0,0,0.15);
+    filter: none !important;
+    text-shadow: 0.3px 0.3px 0 rgba(107,24,24,0.4) !important;
+    overflow: visible;
+  }
+  /* Ink bleed effect — parchment dots showing through (no blur) */
+  #garden-view .stamp-card.closed::before {
+    content: '';
+    position: absolute;
+    inset: -1px -2px;
+    border-radius: 2px;
+    background:
+      radial-gradient(circle 2px at 15% 30%, rgba(250,243,223,0.55), transparent),
+      radial-gradient(circle 1.5px at 80% 20%, rgba(250,243,223,0.5), transparent),
+      radial-gradient(circle 2px at 50% 80%, rgba(250,243,223,0.5), transparent),
+      radial-gradient(circle 2.5px at 92% 70%, rgba(250,243,223,0.55), transparent),
+      radial-gradient(circle 1px at 30% 55%, rgba(250,243,223,0.4), transparent);
+    pointer-events: none;
+    mix-blend-mode: lighten;
   }
     #garden-view .stamp-card.no-contract {
     color: #b53d2a;
@@ -16281,140 +16339,7 @@ window.cloudOnLocalChange = cloudOnLocalChange;
 let gardens = loadGardens();
 let notes = loadNotes();
 
-// seed sample data on first run
-if (gardens.length === 0 && notes.length === 0) {
-  gardens = [
-    {
-      id: 'g1',
-      name: 'สวนป้าแดง',
-      fruit: 'ลำไย',
-      firstname: 'แดง', lastname: 'ใจดี', nickname: 'ป้าแดง',
-      owner: 'ป้าแดง',
-      phone: '09X-XXX-5678',
-      province: 'เชียงใหม่', district: 'สันป่าตอง', subdistrict: 'มะขุนหวาน',
-      location: 'บ้านโป่งงาม',
-      size: '12 ไร่',
-      contractStatus: 'signed',
-      // ใหม่: เหมา 100,000 มัดจำ 30,000 ค้าง 70,000
-      dealType: 'lump', lumpTotal: 100000, deposit: 30000,
-      depositDate: '2026-04-20', remainingDate: '2026-05-05',
-      collectStartDate: '2026-04-25',
-      status: 'collecting',
-      careRating: 'good', yieldRating: 'great', memoRating: 'back',
-      collections: [
-        { date: '2026-04-25', baskets: 100, kg: 1850, note: '' },
-        { date: '2026-04-26', baskets: 130, kg: 2420, note: '' },
-        { date: '2026-04-27', baskets: 120, kg: 2200, note: '' },
-        { date: '2026-04-28', baskets: 150, kg: 2780, note: '' },
-        { date: '2026-04-29', baskets: 120, kg: 2240, note: 'วันนี้' },
-      ],
-      expenses: [
-        { date: '2026-04-25', desc: 'ค่าแรงคนเก็บ', amount: 1800 },
-        { date: '2026-04-26', desc: 'ค่าน้ำมันรถ', amount: 600 },
-      ],
-    },
-    {
-      id: 'g2',
-      name: 'สวนเฮียโม',
-      fruit: 'เงาะ',
-      firstname: 'โม', nickname: 'เฮียโม',
-      owner: 'โม',
-      phone: '08X-XXX-2222',
-      province: 'จันทบุรี', district: 'ท่าใหม่',
-      contractStatus: 'signed',
-      // รายโล รวมเบอร์
-      dealType: 'kg-all', kgPrice: 45,
-      collectStartDate: '2026-04-26',
-      status: 'collecting',
-      careRating: 'ok', yieldRating: 'good',
-      collections: [
-        { date: '2026-04-26', baskets: 70, kg: 1100, note: '' },
-        { date: '2026-04-27', baskets: 90, kg: 1450, note: '' },
-        { date: '2026-04-29', baskets: 85, kg: 1380, note: '' },
-      ],
-      expenses: [],
-    },
-    {
-      id: 'g3',
-      name: 'สวนลุงเสริฐ',
-      fruit: 'ลำไย',
-      firstname: 'เสริฐ', nickname: 'ลุงเสริฐ',
-      owner: 'เสริฐ',
-      province: 'เชียงใหม่', district: 'จอมทอง',
-      contractStatus: 'signed',
-      // เหมา 80,000 ยังไม่มัดจำ
-      dealType: 'lump', lumpTotal: 80000, deposit: 0,
-      collectStartDate: '2026-04-22',  // ผ่านไปแล้ว → overdue test!
-      status: 'waiting',
-      collections: [],
-      expenses: [],
-    },
-    {
-      id: 'g4',
-      name: 'สวนเสี่ยจ้อย',
-      fruit: 'ทุเรียน',
-      firstname: 'จ้อย', nickname: 'เสี่ยจ้อย',
-      owner: 'จ้อย',
-      province: 'จันทบุรี',
-      contractStatus: 'pending',
-      // ราคายังไม่ตกลง
-      priceTBD: true,
-      dealType: 'kg-grade',
-      gradePrices: [],
-      status: 'no-contract',
-      collections: [],
-      expenses: [],
-    },
-    {
-      id: 'g5',
-      name: 'สวนน้องอั้ม',
-      fruit: 'มะม่วง',
-      firstname: 'อั้ม', lastname: 'พินใจ', nickname: 'อั้ม',
-      owner: 'อั้ม',
-      province: 'เชียงราย', district: 'แม่จัน',
-      contractStatus: 'signed',
-      // รายโล แยกเบอร์
-      dealType: 'kg-grade',
-      gradePrices: [
-        { grade: 'AA', price: 80 },
-        { grade: 'A', price: 60 },
-        { grade: 'B', price: 40 },
-      ],
-      collectStartDate: '2026-05-10',
-      status: 'waiting',
-      careRating: 'good',
-      collections: [],
-      expenses: [],
-    },
-    {
-      id: 'g6',
-      name: 'สวนลุงเสือ',
-      fruit: 'ลำไย',
-      firstname: 'เสือ', nickname: 'ลุงเสือ',
-      owner: 'เสือ',
-      province: 'ลำพูน', district: 'เมือง',
-      contractStatus: 'signed',
-      dealType: 'lump', lumpTotal: 60000, deposit: 60000,  // จ่ายครบแล้ว
-      depositDate: '2025-08-10',
-      collectStartDate: '2025-08-15',
-      status: 'collecting',
-      careRating: 'good', yieldRating: 'good', memoRating: 'back',
-      profitStatus: 'profit',
-      collections: [
-        { date: '2025-08-15', baskets: 400, kg: 7500, note: '' },
-        { date: '2025-08-22', baskets: 800, kg: 14800, note: '' },
-      ],
-      expenses: [{ date: '2025-08-15', desc: 'ค่าแรง', amount: 5000 }],
-    },
-  ];
-  notes = [
-    { id: 'n1', when: Date.now() - 1000*60*60*5, color: 'yellow', text: 'สวนลุงเสริฐ ผลลำไยเริ่มแก่จัด ต้องเข้าเก็บภายในสัปดาห์หน้า ราคาตลาดน่าจะขึ้น', img: null },
-    { id: 'n2', when: Date.now() - 1000*60*60*24, color: 'pink', text: '📞 เบอร์เจ๊เหรียญใหม่ — 08X-XXX-1234', img: null },
-    { id: 'n3', when: Date.now() - 1000*60*60*48, color: 'blue', text: 'ค่าน้ำมันรถบรรทุกขึ้น ต้องคำนวณค่าขนส่งใหม่ +3 บ./โล', img: null },
-  ];
-  saveGardens(gardens);
-  saveNotes(notes);
-}
+// (demo seed data removed — production app)
 
 // ════════════════════════════════════════════
 //  HELPERS
@@ -18278,23 +18203,20 @@ function renderDetail() {
               const fmt2 = (v) => v !== null && v !== undefined ? v.toFixed(2) : '—';
               const sumOrDash = (a, b) => (a !== null && a !== undefined && b !== null && b !== undefined) ? (a + b).toFixed(2) : (a !== null && a !== undefined ? a.toFixed(2) : '—');
               const overCost = (userOverTarget && g.lumpTotal) ? (Number(g.lumpTotal) / userOverTarget) : null;
-              // Row 3 cell: depends on whether user set overTarget
+              // Row 3 cell — inline editable (กดที่ช่อง → ใส่เลข)
               let row3FirstCell = '';
               if (overCost !== null) {
                 row3FirstCell = `
-                  <div class="ns-calc-cell" onclick="setOverTarget('${g.id}')" title="แก้เกินเป้า" style="cursor:pointer;">
+                  <div class="ns-calc-cell ns-calc-editable" onclick="startInlineEditOverTarget('${g.id}', this)" title="กดเพื่อแก้เกินเป้า">
                     <div class="ns-calc-lbl">เกินเป้า</div>
                     <div class="ns-calc-val">${overCost.toFixed(2)}<span class="unit">บ.</span></div>
                   </div>`;
-              } else if (g.lumpTotal && expectedKg) {
-                // Show placeholder button only when lump-based calculation makes sense
-                row3FirstCell = `
-                  <button class="ns-calc-cell ns-calc-set-target" onclick="setOverTarget('${g.id}')">
-                    <span class="ns-add-plus">+</span>
-                    <span class="ns-add-lbl">ตั้งเกินเป้า</span>
-                  </button>`;
               } else {
-                row3FirstCell = `<div class="ns-calc-cell ns-calc-empty"><div class="ns-calc-lbl">เกินเป้า</div><div class="ns-calc-val">—</div></div>`;
+                row3FirstCell = `
+                  <div class="ns-calc-cell ns-calc-editable" onclick="startInlineEditOverTarget('${g.id}', this)" title="กดเพื่อตั้งเกินเป้า">
+                    <div class="ns-calc-lbl">เกินเป้า</div>
+                    <div class="ns-calc-val"><span style="color:#8b6f3f;font-size:10px;">+ ตั้งเกินเป้า</span></div>
+                  </div>`;
               }
               const totalRow1 = sumOrDash(currentCost, labor);
               const totalRow2 = sumOrDash(expectedCost, labor);
@@ -18318,9 +18240,9 @@ function renderDetail() {
                   </div>
                 </div>
                 <div class="ns-calc-row">
-                  <div class="ns-calc-cell">
+                  <div class="ns-calc-cell ns-calc-editable" onclick="startInlineEditExpected('${g.id}', this)" title="กดเพื่อใส่น้ำหนักคาด">
                     <div class="ns-calc-lbl">ที่คาด</div>
-                    <div class="ns-calc-val">${fmt2(expectedCost)}<span class="unit">บ.</span></div>
+                    <div class="ns-calc-val">${expectedCost !== null ? expectedCost.toFixed(2) + '<span class="unit">บ.</span>' : '<span style="color:#8b6f3f;font-size:10px;">+ ตั้งน้ำหนักคาด</span>'}</div>
                   </div>
                   <div class="ns-calc-op">+</div>
                   <div class="ns-calc-cell">
@@ -18620,7 +18542,7 @@ function openGardenForm(id) {
         </div>
         <div class="d-grid">
           <label>ชื่อสวน *</label>
-          <input id="gf-name" value="${gbEscapeHtml(g.name||'')}" placeholder="เช่น สวนป้าแดง">
+          <input id="gf-name" value="${gbEscapeHtml(g.name||'')}" placeholder="ชื่อสวน">
           <label>ผลไม้ *</label>
           <input id="gf-fruit" value="${gbEscapeHtml(g.fruit||'')}" placeholder="เช่น ลำไย">
         </div>
@@ -18632,7 +18554,7 @@ function openGardenForm(id) {
           <label>นามสกุล</label>
           <input id="gf-lastname" value="${gbEscapeHtml(g.lastname||'')}" placeholder="ใจดี">
           <label>ชื่อเล่น</label>
-          <input id="gf-nickname" value="${gbEscapeHtml(g.nickname||g.owner||'')}" placeholder="ป้าแดง">
+          <input id="gf-nickname" value="${gbEscapeHtml(g.nickname||g.owner||'')}" placeholder="ชื่อเล่น">
           <label>เบอร์</label>
           <input id="gf-phone" type="tel" inputmode="tel" autocomplete="tel" value="${gbEscapeHtml(g.phone||'')}">
         </div>
@@ -19072,6 +18994,136 @@ async function delGarden(id) {
   goBack();
   toast('ลบแล้ว');
 }
+
+// ── Inline edit helpers (Design A: tap to edit) ──
+function _startInlineEdit(id, cellEl, opts) {
+  // opts: { initial, placeholder, onSave(num|null), validate(num) → null|errMsg }
+  if (!cellEl || cellEl.classList.contains('ns-calc-editing')) return;
+  const lblEl = cellEl.querySelector('.ns-calc-lbl');
+  const valEl = cellEl.querySelector('.ns-calc-val');
+  if (!valEl) return;
+  // Save originals to restore on cancel
+  const origValHtml = valEl.innerHTML;
+  const origClass = cellEl.className;
+  cellEl.classList.add('ns-calc-editing');
+  // Replace val with input
+  valEl.innerHTML = '';
+  const input = document.createElement('input');
+  input.type = 'tel'; // numeric keyboard on iOS without "done" bar issues
+  input.inputMode = 'numeric';
+  input.pattern = '[0-9]*';
+  input.className = 'ns-calc-editor';
+  input.value = opts.initial != null ? String(opts.initial) : '';
+  input.placeholder = opts.placeholder || '';
+  valEl.appendChild(input);
+  let cancelled = false;
+  let saved = false;
+  function restore() {
+    cellEl.className = origClass;
+    valEl.innerHTML = origValHtml;
+  }
+  function doSave() {
+    if (saved || cancelled) return;
+    saved = true;
+    const raw = input.value.trim();
+    if (raw === '') {
+      opts.onSave(null);
+      return;
+    }
+    const n = Number(raw.replace(/,/g, ''));
+    if (!isFinite(n) || n < 0) {
+      toast('ใส่ตัวเลขที่ถูกต้อง');
+      restore();
+      return;
+    }
+    const err = opts.validate ? opts.validate(n) : null;
+    if (err) {
+      toast(err);
+      // keep editing — focus back
+      saved = false;
+      input.focus();
+      return;
+    }
+    opts.onSave(n);
+  }
+  input.addEventListener('blur', doSave);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+    } else if (e.key === 'Escape') {
+      cancelled = true;
+      input.removeEventListener('blur', doSave);
+      restore();
+    }
+  });
+  // Focus + select after a tick (mobile-safe)
+  setTimeout(() => {
+    input.focus();
+    try { input.select(); } catch(_){}
+  }, 20);
+}
+
+function startInlineEditExpected(id, cellEl) {
+  const g = gardens.find(x => x.id === id);
+  if (!g) return;
+  _startInlineEdit(id, cellEl, {
+    initial: g.expectedKg || '',
+    placeholder: 'กก.',
+    validate: (n) => {
+      if (n <= 0) return 'ต้องมากกว่า 0';
+      const ot = Number(g.overTarget) || 0;
+      if (ot && n >= ot) return `ต้องน้อยกว่าเกินเป้า ${fmtNum(ot)} กก.`;
+      return null;
+    },
+    onSave: (n) => {
+      if (n === null) {
+        delete g.expectedKg;
+        // also clear overTarget (depends on expectedKg)
+        if (g.overTarget) delete g.overTarget;
+        saveGardens(gardens);
+        renderDetail();
+        toast('ยกเลิกน้ำหนักคาดแล้ว');
+      } else {
+        g.expectedKg = n;
+        saveGardens(gardens);
+        renderDetail();
+        toast('ตั้งน้ำหนักคาด '+fmtNum(n)+' กก.');
+      }
+    }
+  });
+}
+
+function startInlineEditOverTarget(id, cellEl) {
+  const g = gardens.find(x => x.id === id);
+  if (!g) return;
+  const expectedKg = Number(g.expectedKg) || 0;
+  if (!expectedKg) { toast('ตั้งน้ำหนักคาดก่อน'); return; }
+  _startInlineEdit(id, cellEl, {
+    initial: g.overTarget || '',
+    placeholder: 'กก.',
+    validate: (n) => {
+      if (n <= expectedKg) return `ต้องมากกว่าเป้า ${fmtNum(expectedKg)} กก.`;
+      return null;
+    },
+    onSave: (n) => {
+      if (n === null) {
+        delete g.overTarget;
+        saveGardens(gardens);
+        renderDetail();
+        toast('ยกเลิกเกินเป้าแล้ว');
+      } else {
+        g.overTarget = n;
+        saveGardens(gardens);
+        renderDetail();
+        toast('ตั้งเกินเป้า '+fmtNum(n)+' กก.');
+      }
+    }
+  });
+}
+
+window.startInlineEditExpected = startInlineEditExpected;
+window.startInlineEditOverTarget = startInlineEditOverTarget;
 
 async function setOverTarget(id) {
   const g = gardens.find(x => x.id === id);
@@ -22103,7 +22155,7 @@ function albumEditName(gardenId, photoId) {
   bg.innerHTML = `
     <div class="alb-name-modal">
       <div class="alb-name-h">ตั้งชื่อภาพ</div>
-      <input class="alb-name-input" id="alb-name-input" value="${gbEscapeHtml(p.name||'')}" placeholder="เช่น ทางเข้าสวน · ป้าแดง" autofocus/>
+      <input class="alb-name-input" id="alb-name-input" value="${gbEscapeHtml(p.name||'')}" placeholder="ชื่อรูป" autofocus/>
       <div class="alb-name-actions">
         <button class="alb-name-btn cancel" onclick="document.getElementById('alb-name-bg').remove()">ยกเลิก</button>
         <button class="alb-name-btn save" onclick="albumSaveName('${gardenId}','${photoId}')">บันทึก</button>
