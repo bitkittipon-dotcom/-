@@ -5254,17 +5254,18 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
 
   /* ── Original bill drawer ── */
   .orig-bill-trigger {
+    /* ── ใต้ปุ่มกล้องบิล + เผื่อ safe-area top ── */
     position: fixed;
-    top: 12px;
+    top: calc(max(50px, env(safe-area-inset-top, 0px) + 12px) + 12px);
     right: 12px;
     z-index: 8;
     background: linear-gradient(180deg, #c0392b, #8b1a1a);
     color: white;
     border: 1.5px solid #5d0d0d;
     border-radius: 6px;
-    padding: 8px 14px;
+    padding: 7px 12px;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     cursor: pointer;
     box-shadow: 0 3px 0 #5d0d0d, 0 4px 8px rgba(0,0,0,0.3);
@@ -5657,16 +5658,23 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
   }
 
     #garden-view .open-garden-btn.close-garden {
-    /* ── Black slate · เล็กลง 30% เพราะกดเฉพาะตอนปิดสวน ── */
+    /* ── Black slate · กลางจอ · ใหญ่ขึ้น 20% ── */
     background:
       radial-gradient(ellipse at 50% 25%, #5a5a5a 0%, #3a3a3a 35%, #1f1f1f 65%, #0a0a0a 100%);
     color: #d4af37;
     border: 1.5px solid #000;
-    /* ปรับขนาด ↓ 30% */
-    padding: 12px 10px;
-    font-size: 12px;
-    letter-spacing: 1.4px;
-    margin-bottom: 10px;
+    /* +20% from previous (30% smaller) */
+    padding: 14px 24px !important;
+    font-size: 14px !important;
+    letter-spacing: 1.7px !important;
+    margin: 6px auto 10px !important;
+    /* ── อยู่ตรงกลาง · ไม่ full-width ── */
+    width: auto !important;
+    max-width: 280px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
     box-shadow:
       inset 0 0 0 1px rgba(212,175,55,0.18),
       inset 0 0 0 2px rgba(0,0,0,0.4),
@@ -5680,18 +5688,18 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
       0 0 8px rgba(212,175,55,0.25);
     animation: cg-pulse 2s ease-in-out infinite, ogb-wobble 5s ease-in-out infinite;
   }
-  /* sub text inside close-garden — ลดขนาดตาม */
+  /* sub text inside close-garden — +20% */
     #garden-view .open-garden-btn.close-garden .ogb-text > span {
-    font-size: 8px !important;
-    margin-top: 1px !important;
-    letter-spacing: 0.3px !important;
+    font-size: 10px !important;
+    margin-top: 2px !important;
+    letter-spacing: 0.4px !important;
     opacity: 0.75 !important;
     color: rgba(212,175,55,0.85);
   }
-  /* icon ใน close-garden ก็เล็กลง */
+  /* icon ใน close-garden — +20% */
     #garden-view .open-garden-btn.close-garden svg {
-    width: 18px !important;
-    height: 18px !important;
+    width: 22px !important;
+    height: 22px !important;
   }
     #garden-view .open-garden-btn.close-garden .ogb-icon {
     color: #d4af37;
@@ -6707,8 +6715,9 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
   #garden-view .ns-calc-row:last-child { border-bottom: 0; padding-bottom: 4px; }
   #garden-view .ns-calc-row:first-child { padding-top: 4px; }
   #garden-view .ns-calc-cell {
-    background: rgba(255,255,255,0.5);
-    border: 1px solid rgba(107,68,35,0.25);
+    /* default — ไม่มีกรอบ · ไม่มีพื้นหลัง (เฉพาะ .editable / .total ถึงจะมีกรอบ) */
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 5px;
     padding: 6px 3px;
     text-align: center;
@@ -6766,11 +6775,11 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
   }
   #garden-view .ns-calc-cell.ns-calc-set-target .ns-add-plus { font-size: 16px; color: #8b6f3f; font-weight: 700; line-height: 1; }
   #garden-view .ns-calc-cell.ns-calc-set-target .ns-add-lbl { font-size: 9.5px; color: #6b4423; font-weight: 600; }
-  /* editable inline-edit cell */
+  /* editable inline-edit cell — มีกรอบ + bg ชัดเจนว่ากดได้ */
   #garden-view .ns-calc-cell.ns-calc-editable {
     cursor: pointer;
-    border: 1.5px dashed rgba(107,142,61,0.55);
-    background: rgba(255,255,255,0.7);
+    border: 1.5px dashed rgba(107,142,61,0.55) !important;
+    background: rgba(255,255,255,0.7) !important;
     position: relative;
   }
   #garden-view .ns-calc-cell.ns-calc-editable:hover { border-color: #6b8e3d; }
@@ -12010,38 +12019,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, { passive: false });
 
-  // ป้องกัน pull-to-refresh — ปัดลงเร็วบนสุดของหน้า → reload page
-  // iOS Safari + Chrome Android: ถ้า scrollY = 0 + ปัดลง → refresh
+  // ป้องกัน pull-to-refresh + swipe-to-navigate (ครอบคลุม)
+  // iOS Safari + Chrome Android — ปัดลง/ปัดซ้ายขวา = reload/navigate
   let _ptrStartY = 0;
-  let _ptrShouldBlock = false;
+  let _ptrStartX = 0;
+
+  // หา scrollable ancestor ที่ใกล้ target ที่สุด · คืน {el, atTop, atBottom}
+  function _findScrollableAncestor(target) {
+    let el = target;
+    while (el && el !== document.body && el !== document.documentElement) {
+      const style = window.getComputedStyle(el);
+      const oy = style.overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) {
+        return {
+          el,
+          atTop: el.scrollTop <= 0,
+          atBottom: Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight - 1,
+        };
+      }
+      el = el.parentElement;
+    }
+    // fallback: window scroll
+    const sy = window.scrollY || window.pageYOffset || 0;
+    const wh = window.innerHeight;
+    const dh = document.documentElement.scrollHeight;
+    return {
+      el: null,
+      atTop: sy <= 0,
+      atBottom: Math.ceil(sy + wh) >= dh - 1,
+    };
+  }
+
   document.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) return;
     _ptrStartY = e.touches[0].clientY;
-    // ถ้าอยู่บนสุดของ scrollable parent → ต้องระวัง
-    const sy = window.scrollY || window.pageYOffset || 0;
-    _ptrShouldBlock = (sy <= 0);
+    _ptrStartX = e.touches[0].clientX;
   }, { passive: true });
+
   document.addEventListener('touchmove', (e) => {
-    if (!_ptrShouldBlock) return;
     if (e.touches.length !== 1) return;
     const dy = e.touches[0].clientY - _ptrStartY;
-    // ถ้าปัดลง (dy > 0) ตอนอยู่บนสุด → block pull-to-refresh
-    if (dy > 0) {
-      // เช็คว่า touch target อยู่ใน scrollable element อื่นไหม
-      // (เช่น modal scroll · ไม่ block)
-      const target = e.target;
-      let el = target;
-      let inScrollable = false;
-      while (el && el !== document.body) {
-        const style = window.getComputedStyle(el);
-        const overflowY = style.overflowY;
-        if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollTop > 0) {
-          inScrollable = true;
-          break;
-        }
-        el = el.parentElement;
-      }
-      if (!inScrollable) {
+    const dx = e.touches[0].clientX - _ptrStartX;
+
+    const adx = Math.abs(dx);
+    const ady = Math.abs(dy);
+
+    // ── Vertical swipe ลง ตอนอยู่บนสุด → block pull-to-refresh ──
+    if (ady > adx && dy > 0) {
+      const info = _findScrollableAncestor(e.target);
+      if (info.atTop) {
         e.preventDefault();
       }
     }
