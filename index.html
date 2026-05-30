@@ -4418,15 +4418,29 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     }
     #garden-view .lc-bar-track {
       flex: 1;
-      height: 5px;
-      background: rgba(107,68,35,0.12);
-      border-radius: 3px;
-      overflow: hidden;
+      height: 11px;
+      background: #e0cfa3;
+      border: 1px solid rgba(90,56,24,0.45);
+      border-radius: 6px;
+      box-shadow: inset 0 1px 2px rgba(90,56,24,0.22);
+      position: relative;
     }
     #garden-view .lc-bar-fill {
       height: 100%;
-      border-radius: 3px;
+      border-radius: 5px;
+      position: relative;
       transition: width 0.3s ease;
+    }
+    #garden-view .lc-bar-knob {
+      position: absolute;
+      right: 0; top: 50%;
+      transform: translate(50%, -50%);
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      border: 3px solid currentColor;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      z-index: 2;
     }
     #garden-view .lc-bar-pct {
       font-family: 'JetBrains Mono', monospace;
@@ -4563,22 +4577,41 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     cursor: pointer;
   }
 
-  /* FAB */
+  /* FAB — pill "+ เพิ่มสวน" (style A) */
     #garden-view .fab {
     position: fixed;
     bottom: max(18px, calc(env(safe-area-inset-bottom, 18px) + 12px));
     right: 18px;
-    width: 52px; height: 52px;
-    background: linear-gradient(135deg, #6b8e3d, #4a6928);
-    color: white;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 26px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    width: auto; height: auto;
+    padding: 11px 20px 11px 11px;
+    gap: 11px;
+    background: linear-gradient(170deg, #6b8e3d, #4a6928 60%, #3d5a20);
+    color: #faf3df;
+    border-radius: 40px;
+    display: flex; align-items: center; justify-content: flex-start;
+    font-size: 16px; font-weight: 700;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.25);
+    box-shadow: 0 4px 0 #2f4a18, 0 7px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.25);
     cursor: pointer;
-    border: 1px solid #2d3325;
+    border: 2px solid #2f4a18;
     z-index: 40;
-    transition: bottom 0.28s ease;
+    transition: bottom 0.28s ease, transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  #garden-view .fab .fab-plus {
+    width: 30px; height: 30px; flex: none;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 20px; font-weight: 800; line-height: 1;
+    color: #3d5a20;
+    background: linear-gradient(160deg, #ffffff, #e9f0d8 70%, #cdd9b0);
+    box-shadow: 0 3px 5px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -2px 4px rgba(47,74,24,0.25);
+    text-shadow: none;
+    transform: translateY(-1px);
+  }
+  #garden-view .fab .fab-label { white-space: nowrap; }
+  #garden-view .fab:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #2f4a18, 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.25);
   }
   /* When viewing detail (bottom nav visible), lift FAB up */
   #garden-view .fab.lifted { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
@@ -5254,22 +5287,26 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
 
   /* ── Original bill drawer ── */
   .orig-bill-trigger {
-    /* ── ใต้ปุ่มกล้องบิล + เผื่อ safe-area top ── */
-    position: fixed;
-    top: calc(max(50px, env(safe-area-inset-top, 0px) + 12px) + 12px);
-    right: 12px;
+    /* ── อยู่ขวาบน paper · บรรทัดเดียวกับ "ทศพร" ── */
+    position: absolute;
+    top: 14px;
+    right: 8px;
     z-index: 8;
     background: linear-gradient(180deg, #c0392b, #8b1a1a);
     color: white;
     border: 1.5px solid #5d0d0d;
-    border-radius: 6px;
-    padding: 7px 12px;
+    border-radius: 5px;
+    padding: 5px 9px;
     font-family: inherit;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     cursor: pointer;
-    box-shadow: 0 3px 0 #5d0d0d, 0 4px 8px rgba(0,0,0,0.3);
-    letter-spacing: 0.5px;
+    box-shadow: 0 2px 0 #5d0d0d, 0 3px 5px rgba(0,0,0,0.25);
+    letter-spacing: 0.3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
   }
   .orig-bill-trigger:active {
     transform: translateY(2px);
@@ -5775,8 +5812,11 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
 
   /* ── Send-to-quote stone button (matching neoclassical) ── */
     #garden-view .send-btn-stone {
-    width: 100%;
+    /* ── width ลดลง 35% · center ── */
+    width: 65%;
     margin-top: 14px;
+    margin-left: auto;
+    margin-right: auto;
     padding: 16px 14px;
     background: radial-gradient(ellipse at 50% 25%, #d4b89a 0%, #b09678 35%, #966848 65%, #6b3410 100%);
     color: #2a1305;
@@ -6332,6 +6372,9 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
   }
   #garden-view .summary-parch.closed,
   #garden-view .collect-parch.closed { opacity: 0.85; filter: saturate(0.7); }
+  #garden-view .collect-parch.empty-clickable { cursor: pointer; transition: transform .1s ease, box-shadow .1s ease; }
+  #garden-view .collect-parch.empty-clickable:active { transform: scale(0.985); }
+  #garden-view .collect-parch.empty-clickable .empty { cursor: pointer; }
   #garden-view .summary-parch .cnr,
   #garden-view .collect-parch .cnr {
     position: absolute;
@@ -6775,23 +6818,14 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
   }
   #garden-view .ns-calc-cell.ns-calc-set-target .ns-add-plus { font-size: 16px; color: #8b6f3f; font-weight: 700; line-height: 1; }
   #garden-view .ns-calc-cell.ns-calc-set-target .ns-add-lbl { font-size: 9.5px; color: #6b4423; font-weight: 600; }
-  /* editable inline-edit cell — มีกรอบ + bg ชัดเจนว่ากดได้ */
+  /* editable inline-edit cell — กรอบน้ำตาลเดิม · ไม่มีดินสอ */
   #garden-view .ns-calc-cell.ns-calc-editable {
     cursor: pointer;
-    border: 1.5px dashed rgba(107,142,61,0.55) !important;
-    background: rgba(255,255,255,0.7) !important;
+    border: 1px solid rgba(107,68,35,0.45) !important;
+    background: rgba(255,255,255,0.5) !important;
     position: relative;
   }
-  #garden-view .ns-calc-cell.ns-calc-editable:hover { border-color: #6b8e3d; }
-  #garden-view .ns-calc-cell.ns-calc-editable::after {
-    content: '✏';
-    position: absolute;
-    top: 1px;
-    right: 3px;
-    font-size: 9px;
-    opacity: 0.55;
-    pointer-events: none;
-  }
+  #garden-view .ns-calc-cell.ns-calc-editable:hover { border-color: rgba(107,68,35,0.7) !important; }
   #garden-view .ns-calc-cell.ns-calc-editing {
     border: 2px solid #6b8e3d;
     background: white;
@@ -9097,46 +9131,53 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     font-family: 'Sarabun', sans-serif;
   }
     #garden-view .stamp-card.closed {
-    /* Design A — Rubber Stamp (no blur, +20% from preview) */
+    /* Style 9 — Flat Circle · กลางการ์ด · ติกใหญ่เกือบเต็ม */
     position: absolute !important;
     top: 50% !important;
-    left: auto !important;
-    right: 10px !important;
-    display: inline-block !important;
-    transform: translateY(-50%) rotate(-7deg) !important;
-    font-family: 'Sarabun', sans-serif !important;
-    font-size: 11px !important;
-    font-weight: 900 !important;
-    letter-spacing: 1.8px !important;
-    color: rgba(107,24,24,0.7) !important;
-    background: transparent !important;
-    border: 1.5px solid rgba(107,24,24,0.7) !important;
-    border-radius: 2px !important;
-    padding: 3px 10px !important;
-    pointer-events: none !important;
-    white-space: nowrap !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translate(-50%, -50%) !important;
+    width: 68px !important;
+    height: 68px !important;
+    border-radius: 50% !important;
+    background: rgba(76,175,80,0.55) !important;
+    border: none !important;
+    box-shadow: 0 2px 8px rgba(76,175,80,0.2) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
     margin: 0 !important;
     flex: none !important;
     align-self: auto !important;
     z-index: 5;
     filter: none !important;
-    text-shadow: 0.3px 0.3px 0 rgba(107,24,24,0.4) !important;
+    color: white !important;
+    font-family: 'Sarabun', sans-serif !important;
+    text-shadow: none !important;
+    letter-spacing: normal !important;
     overflow: visible;
+    pointer-events: none !important;
+    white-space: normal !important;
   }
-  /* Ink bleed effect — parchment dots showing through (no blur) */
-  #garden-view .stamp-card.closed::before {
-    content: '';
-    position: absolute;
-    inset: -1px -2px;
-    border-radius: 2px;
-    background:
-      radial-gradient(circle 2px at 15% 30%, rgba(250,243,223,0.55), transparent),
-      radial-gradient(circle 1.5px at 80% 20%, rgba(250,243,223,0.5), transparent),
-      radial-gradient(circle 2px at 50% 80%, rgba(250,243,223,0.5), transparent),
-      radial-gradient(circle 2.5px at 92% 70%, rgba(250,243,223,0.55), transparent),
-      radial-gradient(circle 1px at 30% 55%, rgba(250,243,223,0.4), transparent);
-    pointer-events: none;
-    mix-blend-mode: lighten;
+  /* ✓ ใหญ่เกือบเต็มวงกลม */
+  #garden-view .stamp-card.closed .sc-check {
+    font-size: 42px !important;
+    font-weight: 900 !important;
+    color: rgba(255,255,255,0.92) !important;
+    line-height: 1 !important;
+    margin-bottom: -4px !important;
+    margin-top: -6px !important;
+  }
+  /* ปิดสวน · กลางใต้ติก */
+  #garden-view .stamp-card.closed .sc-txt {
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    color: rgba(255,255,255,0.92) !important;
+    letter-spacing: 1px !important;
+    line-height: 1 !important;
+    margin-top: 2px !important;
   }
     #garden-view .stamp-card.no-contract {
     color: #b53d2a;
@@ -9475,14 +9516,15 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     #garden-view .sub-content.active { display: block; }
 
     #garden-view .add-line-btn {
+    /* ── ความสูงเพิ่มเป็น 150% (padding 8px → 16px) ── */
     width: 100%;
     background: rgba(107,142,61,0.15);
     border: 1px dashed rgba(107,142,61,0.5);
     color: #2d3325;
-    padding: 8px;
+    padding: 16px 12px;
     border-radius: 4px;
     font-family: inherit;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     cursor: pointer;
     margin-top: 4px;
@@ -9607,6 +9649,100 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     letter-spacing: 0.1em;
     font-weight: 800;
     text-shadow: 0 0 8px rgba(212,175,55,0.3);
+  }
+  /* ── จ่ายทั้งหมด · pay-all-btn ── */
+  #garden-view .pay-all-btn {
+    background: linear-gradient(180deg, #d4af37, #a88424);
+    color: #1a1108;
+    border: 1px solid #6b4423;
+    border-radius: 5px;
+    padding: 9px 12px;
+    font-weight: 800;
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: 0 2px 0 #6b4423, 0 3px 5px rgba(0,0,0,0.2);
+    white-space: nowrap;
+    font-family: inherit;
+    letter-spacing: 0.3px;
+    margin-top: 4px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  #garden-view .pay-all-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 0 0 #6b4423, 0 1px 2px rgba(0,0,0,0.2);
+  }
+  /* ── ยอดคงเหลือ · จ่ายครบ badge ── */
+  #garden-view .balance-done {
+    background: linear-gradient(135deg, rgba(133,180,82,0.35), rgba(107,142,61,0.25)) !important;
+    border: 1.5px solid #5a7a32 !important;
+    color: #2a4a18 !important;
+    font-weight: 800;
+    text-align: center;
+    cursor: not-allowed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  #garden-view .balance-done::before {
+    content: '✓';
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #5a7a32;
+    color: white;
+    font-size: 14px;
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+  /* ── ปุ่มบันทึกกลาง (Design A · -30%) ── */
+  #garden-view .gfs-save-mid {
+    width: 100%;
+    background: linear-gradient(180deg, #87a85a 0%, #6b8e3d 50%, #4a7820 100%);
+    color: #1f3308;
+    border: 1.5px solid #2d4a1d;
+    border-radius: 7px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.3),
+      0 2px 0 #2d4a1d,
+      0 3px 6px rgba(0,0,0,0.18);
+    font-family: inherit;
+    letter-spacing: 0.7px;
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
+  #garden-view .gfs-save-mid:active {
+    transform: translateY(1px);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.3),
+      0 1px 0 #2d4a1d,
+      0 1px 2px rgba(0,0,0,0.18);
+  }
+  #garden-view .gfs-save-mid .check {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    border: 1.5px solid rgba(31,51,8,0.3);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 11px;
   }
     #garden-view .gfs-save {
     background: linear-gradient(135deg, #6b8e3d, #4a6928);
@@ -10405,10 +10541,10 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
       <div class="orig-drawer-tabs" id="orig-drawer-tabs"></div>
       <div class="orig-drawer-body" id="orig-drawer-body"></div>
     </div>
-    <button id="orig-bill-trigger" class="orig-bill-trigger" onclick="openOrigBillDrawer()" style="display:none;">
-      📑 ดูบิลต้นฉบับ
-    </button>
     <div class="paper">
+      <button id="orig-bill-trigger" class="orig-bill-trigger" onclick="openOrigBillDrawer()" style="display:none;">
+        📑 ดูบิลต้นฉบับ
+      </button>
 
       <div class="slip-head">
         <div class="slip-shop">ทศพร</div>
@@ -11504,6 +11640,62 @@ function cloudInit() {
   }, 3000);
 }
 
+// ── Cloud indicator: auto-hide หลัง 3 วิ · re-show error/offline ทุก 20 วิ ──
+let _cloudHideTimer = null;
+let _cloudRepeatTimer = null;
+
+function _cloudIsProblem() {
+  return (!navigator.onLine || _cloudStatus === 'offline' || _cloudStatus === 'error');
+}
+
+function _cloudHideIndicator() {
+  const el = document.getElementById('cloud-indicator');
+  if (!el) return;
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(8px)';
+  // หลัง transition ค่อย hide จริง (ไม่กิน space)
+  setTimeout(() => {
+    if (el.style.opacity === '0') el.style.visibility = 'hidden';
+  }, 300);
+}
+
+function _cloudShowIndicator() {
+  const el = document.getElementById('cloud-indicator');
+  if (!el) return;
+  el.style.visibility = 'visible';
+  el.style.opacity = '1';
+  el.style.transform = 'translateY(0)';
+}
+
+function _cloudScheduleAutoHide() {
+  // Clear timers ก่อน
+  if (_cloudHideTimer) { clearTimeout(_cloudHideTimer); _cloudHideTimer = null; }
+  if (_cloudRepeatTimer) { clearInterval(_cloudRepeatTimer); _cloudRepeatTimer = null; }
+
+  // โผล่
+  _cloudShowIndicator();
+
+  // 3 วิ → ซ่อน
+  _cloudHideTimer = setTimeout(() => {
+    _cloudHideIndicator();
+    _cloudHideTimer = null;
+
+    // ถ้า error/offline → re-show ทุก 20 วิ (3 วิ แล้วซ่อน)
+    if (_cloudIsProblem()) {
+      _cloudRepeatTimer = setInterval(() => {
+        if (!_cloudIsProblem()) {
+          // ถ้าหายเป็นปกติแล้ว — หยุด repeat
+          clearInterval(_cloudRepeatTimer);
+          _cloudRepeatTimer = null;
+          return;
+        }
+        _cloudShowIndicator();
+        setTimeout(_cloudHideIndicator, 3000);
+      }, 20000);
+    }
+  }, 3000);
+}
+
 function cloudUpdateIndicator() {
   const el = document.getElementById('cloud-indicator');
   if (!el) return;
@@ -11528,15 +11720,20 @@ function cloudUpdateIndicator() {
     icon = '⚪'; label = 'รอ cloud...'; color = '#8a8170';
   }
   el.innerHTML = `<span style="font-size:8px;line-height:1;">${icon}</span><span style="color:${color};">${label}</span>`;
+
+  // Trigger auto-hide ทุกครั้งที่ update
+  _cloudScheduleAutoHide();
 }
 
 function cloudIndicatorClick() {
-  // เปิด info popup สั้นๆ
+  // เปิด info popup สั้นๆ + reset auto-hide timer (เห็นใหม่อีก 3 วิ)
   const lastTxt = _cloudLastSync ? new Date(_cloudLastSync).toLocaleTimeString('th-TH') : '—';
   const stateTxt = !navigator.onLine ? 'ออฟไลน์ — ข้อมูลรอ sync เมื่อ online' :
                    !window.supaReady ? 'กำลังต่อ Supabase...' :
                    `เชื่อมต่อ cloud · sync ล่าสุด: ${lastTxt}`;
   if (typeof toast === 'function') toast(stateTxt);
+  // โผล่ 3 วิ
+  if (typeof _cloudScheduleAutoHide === 'function') _cloudScheduleAutoHide();
 }
 
 function renderBooks() {
@@ -12006,18 +12203,73 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // iOS Safari: ป้องกัน edge swipe back gesture
-  // (ลากนิ้วจากขอบซ้าย/ขวาของจอ → ย้อนกลับใน history)
+  // iOS Safari: ป้องกัน edge swipe back gesture + ปัดซ้าย-ขวา navigate
+  // (1) block edge-zone start (40px จากขอบ)
+  // (2) block horizontal swipe ตอน touchmove ถ้าไม่ใช่ scroll horizontal element
+  let _edgeStart = false;
   document.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
       const t = e.touches[0];
       const w = window.innerWidth || document.documentElement.clientWidth;
-      // ถ้าเริ่ม touch ที่ขอบซ้าย < 20px หรือขอบขวา > w-20 → block
-      if (t.clientX < 20 || t.clientX > w - 20) {
+      // expanded edge zone — 40px (was 20px)
+      _edgeStart = (t.clientX < 40 || t.clientX > w - 40);
+      if (_edgeStart) {
         e.preventDefault();
       }
+    } else {
+      _edgeStart = false;
     }
   }, { passive: false });
+  // History trick + Android hardware back button = smartBack
+  // กด back ของ Android / ปัดซ้ายผ่าน guard → navigate ย้อนใน app (ไม่ออกแอป)
+  if (window.history && !window._historyTrickInit) {
+    window._historyTrickInit = true;
+    // push entry แรกตอน init
+    window.history.pushState({thodsapon: true, depth: 0}, '');
+
+    window.addEventListener('popstate', (e) => {
+      // เช็คว่าตอนนี้อยู่ที่หน้าไหน
+      const homeView = document.getElementById('home-view');
+      const isOnHome = homeView && homeView.style.display !== 'none';
+
+      // เช็ค modal/overlay เปิดอยู่ไหม (ถ้าเปิด → ปิดก่อน)
+      const openModal = document.querySelector('.modal-confirm.show, .modal-confirm.open, .gfs.show, #cam-overlay.show, #alb-fullscreen.show, .orig-drawer.open');
+      if (openModal) {
+        // ปิด modal/overlay แทน
+        if (openModal.id === 'cam-overlay' && typeof window.closeCam === 'function') {
+          window.closeCam();
+        } else if (openModal.id === 'alb-fullscreen' && typeof window.closeAlbFullscreen === 'function') {
+          window.closeAlbFullscreen();
+        } else if (openModal.classList.contains('orig-drawer') && typeof window.closeOrigBillDrawer === 'function') {
+          window.closeOrigBillDrawer();
+        } else if (openModal.classList.contains('gfs') && typeof window.closeGardenForm === 'function') {
+          window.closeGardenForm();
+        } else {
+          // generic close — remove .show/.open class
+          openModal.classList.remove('show', 'open');
+        }
+        // push state กลับเพื่อให้ back ครั้งหน้ายังจับได้
+        window.history.pushState({thodsapon: true}, '');
+        return;
+      }
+
+      // ถ้าอยู่หน้า home แล้ว → ไม่ทำอะไร · กันออกแอป
+      if (isOnHome) {
+        window.history.pushState({thodsapon: true}, '');
+        return;
+      }
+
+      // อยู่ใน detail/sub view → ใช้ smartBack
+      if (typeof smartBack === 'function') {
+        try { smartBack(); } catch(err) { console.warn('smartBack err:', err); }
+      } else if (typeof goHome === 'function') {
+        try { goHome(); } catch(err) {}
+      }
+
+      // push state ทดแทน — เพื่อให้กดต่อได้
+      window.history.pushState({thodsapon: true}, '');
+    });
+  }
 
   // ป้องกัน pull-to-refresh + swipe-to-navigate (ครอบคลุม)
   // iOS Safari + Chrome Android — ปัดลง/ปัดซ้ายขวา = reload/navigate
@@ -12063,6 +12315,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const adx = Math.abs(dx);
     const ady = Math.abs(dy);
+
+    // ── ปัดซ้าย/ปัดขวาแนวนอนแรง → block navigation gesture ──
+    // (เฉพาะตอนปัดแนวนอนชัดเจน · ไม่ใช่ tap หรือ slight movement)
+    if (adx > ady && adx > 30) {
+      // เช็คว่า target อยู่ใน horizontal scrollable element ไหม (เช่น chip row)
+      const target = e.target;
+      let el = target;
+      let inHScroll = false;
+      while (el && el !== document.body) {
+        const style = window.getComputedStyle(el);
+        const ox = style.overflowX;
+        if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth) {
+          inHScroll = true;
+          break;
+        }
+        el = el.parentElement;
+      }
+      if (!inHScroll) {
+        e.preventDefault();
+      }
+      return;
+    }
 
     // ── Vertical swipe ลง ตอนอยู่บนสุด → block pull-to-refresh ──
     if (ady > adx && dy > 0) {
@@ -17549,9 +17823,7 @@ function renderListView() {
       const totalUnpaid = alerts.unpaid.reduce((s,g) => s + unpaidAmount(g), 0);
       lines.push(`<div class="alert-line" onclick="filterByAlert('unpaid')"><span class="ico">💸</span><strong>${alerts.unpaid.length} สวนค้างจ่าย</strong> — รวม ${fmtNum(totalUnpaid)} บ.</div>`);
     }
-    if (alerts.tbd.length) {
-      lines.push(`<div class="alert-line" onclick="filterByAlert('tbd')"><span class="ico">❓</span><strong>${alerts.tbd.length} สวนราคายังไม่ตกลง</strong></div>`);
-    }
+    // ── ไม่แจ้งเตือนสวนที่ยังไม่ทำสัญญา/ตกลงราคา ── (ลบ tbd alert) ──
     if (lines.length) {
       aWrap.classList.add('show');
       aWrap.innerHTML = `<div class="alert-h">🔔 รายการที่ควรจัดการ</div>${lines.join('')}`;
@@ -17656,7 +17928,7 @@ function renderListView() {
 
     // Stamp: เปิดสวน / ปิดสวน / ยังไม่ทำสัญญา
     let stamp = '';
-    if (g.status === 'done' || g.closedAt) stamp = `<div class="stamp-card closed">ปิดสวน</div>`;
+    if (g.status === 'done' || g.closedAt) stamp = `<div class="stamp-card closed"><span class="sc-check">✓</span><span class="sc-txt">ปิดสวน</span></div>`;
     else if (g.status === 'collecting' || g.openedAt) stamp = `<div class="stamp-card opened">เปิดสวน</div>`;
     else if (g.status === 'waiting') stamp = `<div class="stamp-card waiting">ทำสัญญา - รอเปิด</div>`;
     else if (g.status === 'no-contract') stamp = `<div class="stamp-card no-contract">ยังไม่ทำสัญญา</div>`;
@@ -17698,9 +17970,16 @@ function renderListView() {
       // Scale gradient so fill shows the true position on the gradient
       // (when fillPct=17, the rendered bar's 17% width must show the gradient's 17% color)
       const gradScale = isExceeded ? 100 : (fillPct > 0 ? Math.round(10000 / Math.max(fillPct, 1)) : 100);
+      // Solid color at the fill's tip (for the position knob border)
+      let knobColor = '#ef9f27';
+      if (isExceeded) knobColor = '#34c759';
+      else if (rawPct >= 75) knobColor = '#639922';
+      else if (rawPct >= 50) knobColor = '#97c459';
+      else if (rawPct >= 30) knobColor = '#fcd34d';
+      else if (rawPct >= 15) knobColor = '#f0c060';
       const fillStyle = isExceeded
-        ? `width:100%;background:#4ade80;`
-        : `width:${fillPct}%;background:linear-gradient(90deg,#ef9f27 0%,#f0c060 30%,#fcd34d 50%,#97c459 75%,#639922 100%);background-size:${gradScale}% 100%;background-repeat:no-repeat;`;
+        ? `width:100%;background:#34c759;color:${knobColor};`
+        : `width:${fillPct}%;background:linear-gradient(90deg,#ef9f27 0%,#f0c060 30%,#fcd34d 50%,#97c459 75%,#639922 100%);background-size:${gradScale}% 100%;background-repeat:no-repeat;color:${knobColor};`;
       // Pct text color follows the bar
       let pctColor = '#b85a00';
       if (isExceeded) pctColor = '#166534';
@@ -17709,7 +17988,7 @@ function renderListView() {
       else if (rawPct >= 30) pctColor = '#854f0b';
       progBarHtml = `
         <div class="lc-bar-row">
-          <div class="lc-bar-track"><div class="lc-bar-fill" style="${fillStyle}"></div></div>
+          <div class="lc-bar-track"><div class="lc-bar-fill" style="${fillStyle}"><span class="lc-bar-knob"></span></div></div>
           <span class="lc-bar-pct" style="color:${pctColor};">${pctTxt}</span>
         </div>`;
     }
@@ -18007,25 +18286,15 @@ function syncBottomNavActive() {
 let _lastScrollY = 0;
 let _scrollTickQueued = false;
 function _onScrollBottomNav() {
+  // ── DISABLED: ไม่ซ่อน bottom-nav ตอน scroll (เห็นตลอด) ──
   if (_scrollTickQueued) return;
   _scrollTickQueued = true;
   requestAnimationFrame(() => {
     _scrollTickQueued = false;
     const bn = document.getElementById('gv-bottom-nav');
     if (!bn || bn.style.display === 'none') return;
-    const y = window.scrollY || document.documentElement.scrollTop || 0;
-    const dy = y - _lastScrollY;
-    // Always show near top
-    if (y < 30) {
-      bn.classList.remove('hidden');
-    } else if (dy > 6) {
-      // scrolling down → hide
-      bn.classList.add('hidden');
-    } else if (dy < -6) {
-      // scrolling up → show
-      bn.classList.remove('hidden');
-    }
-    _lastScrollY = y;
+    // เห็นเสมอ — เคลียร์ hidden class ทุกครั้ง (ถ้าโดน set ก่อนหน้า)
+    bn.classList.remove('hidden');
   });
 }
 window.addEventListener('scroll', _onScrollBottomNav, { passive: true });
@@ -18399,7 +18668,7 @@ function renderDetail() {
           <div class="sub">กดปุ่ม "🌱 เปิดสวน" ที่แท็บสรุปก่อน</div>
         </div>
       ` : `
-        <div class="collect-parch ${isClosed?'closed':''}">
+        <div class="collect-parch ${isClosed?'closed':''}${((g.collections||[]).length===0 && !_addingCollection && !isClosed)?' empty-clickable':''}" ${((g.collections||[]).length===0 && !_addingCollection && !isClosed)?'onclick="if(event.target.closest(\'.add-line-btn\'))return; addCollection();"':''}>
           <span class="cnr tl"></span><span class="cnr tr"></span>
           <span class="cnr bl"></span><span class="cnr br"></span>
           <div>
@@ -18683,6 +18952,7 @@ function openGardenForm(id) {
                 <span>วันที่:</span>
                 <input id="gf-deposit-date" type="date" value="${gbEscapeHtml(g.depositDate||todayISO())}">
               </div>
+              <button type="button" class="pay-all-btn" onclick="payAllDeposit()">💰 จ่ายทั้งหมด</button>
             </div>
             <label>ยอดคงเหลือ</label>
             <input id="gf-remaining-display" type="text" readonly value="—" style="background:rgba(181,61,42,0.10);color:#b53d2a;font-weight:800;cursor:not-allowed;border-color:rgba(181,61,42,0.35);">
@@ -18743,6 +19013,12 @@ function openGardenForm(id) {
           <textarea id="gf-cnote" placeholder="เงื่อนไขเพิ่มเติม...">${gbEscapeHtml(g.contractNote||'')}</textarea>
         </div>
       </div>
+
+      <!-- ─── ปุ่มบันทึกกลาง (ระหว่าง รายละเอียดการซื้อขาย กับ การประเมิน) ─── -->
+      <button type="button" class="gfs-save-mid" onclick="saveGarden()">
+        <span class="check">✓</span>
+        <span>บันทึก</span>
+      </button>
 
       <!-- ─── หมวด 6: การประเมิน ─── -->
       <div class="d1-section">
@@ -18856,12 +19132,44 @@ function updateRemaining() {
   const remaining = total - deposit;
   const el = document.getElementById('gf-remaining-display');
   if (!el) return;
-  if (total > 0) {
-    el.value = fmtNum(remaining) + ' บ.';
-  } else {
+  // Reset state
+  el.classList.remove('balance-done');
+  el.style.background = '';
+  el.style.color = '';
+  el.style.borderColor = '';
+  if (total <= 0) {
     el.value = '—';
+    el.style.background = 'rgba(181,61,42,0.10)';
+    el.style.color = '#b53d2a';
+    el.style.borderColor = 'rgba(181,61,42,0.35)';
+    return;
+  }
+  if (remaining <= 0 && deposit > 0) {
+    // จ่ายครบ — แสดง badge เขียว
+    el.value = 'จ่ายครบ';
+    el.classList.add('balance-done');
+  } else {
+    el.value = fmtNum(remaining) + ' บ.';
+    el.style.background = 'rgba(181,61,42,0.10)';
+    el.style.color = '#b53d2a';
+    el.style.borderColor = 'rgba(181,61,42,0.35)';
   }
 }
+
+// ── ปุ่มจ่ายทั้งหมด ──
+function payAllDeposit() {
+  const total = Number(document.getElementById('gf-lump-total')?.value) || 0;
+  const depEl = document.getElementById('gf-deposit');
+  if (!depEl) return;
+  if (total <= 0) {
+    if (typeof toast === 'function') toast('⚠ ใส่ราคาเหมาก่อน');
+    return;
+  }
+  depEl.value = total;
+  if (typeof updateRemaining === 'function') updateRemaining();
+  if (typeof toast === 'function') toast('✓ ตั้งจ่ายเต็มจำนวน '+fmtNum(total)+' บ.');
+}
+window.payAllDeposit = payAllDeposit;
 
 function updateCostPerKg() {
   const total = Number(document.getElementById('gf-lump-total')?.value) || 0;
@@ -19795,30 +20103,37 @@ function renderContractDocument(g, isClosed) {
   // Deposit/payment
   const remaining = unpaidAmount(g);
   const fullyPaid = isFullyPaid(g);
+  const cTotal = contractTotal(g);
+  // ── ตรวจ "จ่ายเต็มในครั้งเดียว" — deposit เท่ากับ/มากกว่าราคาเหมา ── 
+  const paidInFull = fullyPaid && cTotal > 0 && Number(g.deposit) >= cTotal;
   let depositRow = '';
-  if (g.deposit) {
-    const depDateBadge = g.depositDate ? `<span class="ct-date-tag">(${fmtDateShort(g.depositDate)})</span>` : '';
-    const depDatePaid = g.depositDate ? `<span class="ct-paid-date">(${fmtDateShort(g.depositDate)})</span>` : '';
-    if (fullyPaid) {
-      // มัดจำ + จ่ายครบทั้งสัญญา → ติดตราปั๊มจ่ายแล้วบนแถวมัดจำด้วย
-      depositRow = `<div class="ct-row paid"><span class="ct-row-lbl">ค่ามัดจำ</span><span class="ct-row-val"><strong class="ct-num">${fmtNum(g.deposit)}</strong> บาท <span class="ct-paid-stamp">จ่ายแล้ว</span> ${depDatePaid}</span></div>`;
-    } else {
-      depositRow = `<div class="ct-row"><span class="ct-row-lbl">ค่ามัดจำ</span><span class="ct-row-val"><strong class="ct-num">${fmtNum(g.deposit)}</strong> บาท ${depDateBadge}</span></div>`;
-    }
-  }
   let remainingRow = '';
-  if (remaining > 0) {
-    // ยังมียอดค้าง — แสดง warn + ปุ่มบันทึกจ่าย
-    const payBtn = isClosed ? '' : `<button class="ct-pay-btn" onclick="event.stopPropagation();recordGardenPayment('${g.id}')">จ่ายมัดจำที่เหลือ</button>`;
-    remainingRow = `<div class="ct-row warn"><span class="ct-row-lbl">ค้างชำระ</span><span class="ct-row-val"><strong class="ct-num">${fmtNum(remaining)}</strong> บาท${g.remainingDate?' · กำหนด '+fmtDateShort(g.remainingDate):''} ${payBtn}</span></div>`;
-  } else if (fullyPaid) {
-    // จ่ายครบ — เขียว + watermark "จ่ายแล้ว" + วันที่ล่าสุด
-    // แสดง "ยอดที่จ่ายผ่าน payments[]" = contractTotal - deposit (ยอดที่เคยค้าง)
-    const paidViaPayments = (g.payments || []).reduce((s, p) => s + (+p.amount || 0), 0);
-    const displayAmount = paidViaPayments > 0 ? paidViaPayments : contractTotal(g);
-    const lastDate = lastPaymentDate(g);
-    const dateBadge = lastDate ? `<span class="ct-paid-date">(${fmtDateShort(lastDate)})</span>` : '';
-    remainingRow = `<div class="ct-row paid"><span class="ct-row-lbl">ค้างชำระ</span><span class="ct-row-val"><strong class="ct-num">${fmtNum(displayAmount)}</strong> บาท <span class="ct-paid-stamp">จ่ายแล้ว</span> ${dateBadge}</span></div>`;
+  if (paidInFull) {
+    // ── จ่ายเต็มในครั้งเดียว → แสดง "จ่ายเต็ม" row เดียว · ซ่อน "ค้างชำระ" ──
+    const depDatePaid = g.depositDate ? `<span class="ct-paid-date">(${fmtDateShort(g.depositDate)})</span>` : '';
+    depositRow = `<div class="ct-row paid"><span class="ct-row-lbl">จ่ายเต็ม</span><span class="ct-row-val"><strong class="ct-num">${fmtNum(g.deposit)}</strong> บาท <span class="ct-paid-stamp">จ่ายแล้ว</span> ${depDatePaid}</span></div>`;
+    // remainingRow เว้นว่าง — ไม่แสดง
+  } else {
+    // ── ปกติ: มีมัดจำ + อาจมีค้างชำระ ──
+    if (g.deposit) {
+      const depDateBadge = g.depositDate ? `<span class="ct-date-tag">(${fmtDateShort(g.depositDate)})</span>` : '';
+      const depDatePaid = g.depositDate ? `<span class="ct-paid-date">(${fmtDateShort(g.depositDate)})</span>` : '';
+      if (fullyPaid) {
+        depositRow = `<div class="ct-row paid"><span class="ct-row-lbl">ค่ามัดจำ</span><span class="ct-row-val"><strong class="ct-num">${fmtNum(g.deposit)}</strong> บาท <span class="ct-paid-stamp">จ่ายแล้ว</span> ${depDatePaid}</span></div>`;
+      } else {
+        depositRow = `<div class="ct-row"><span class="ct-row-lbl">ค่ามัดจำ</span><span class="ct-row-val"><strong class="ct-num">${fmtNum(g.deposit)}</strong> บาท ${depDateBadge}</span></div>`;
+      }
+    }
+    if (remaining > 0) {
+      const payBtn = isClosed ? '' : `<button class="ct-pay-btn" onclick="event.stopPropagation();recordGardenPayment('${g.id}')">จ่ายมัดจำที่เหลือ</button>`;
+      remainingRow = `<div class="ct-row warn"><span class="ct-row-lbl">ค้างชำระ</span><span class="ct-row-val"><strong class="ct-num">${fmtNum(remaining)}</strong> บาท${g.remainingDate?' · กำหนด '+fmtDateShort(g.remainingDate):''} ${payBtn}</span></div>`;
+    } else if (fullyPaid) {
+      const paidViaPayments = (g.payments || []).reduce((s, p) => s + (+p.amount || 0), 0);
+      const displayAmount = paidViaPayments > 0 ? paidViaPayments : cTotal;
+      const lastDate = lastPaymentDate(g);
+      const dateBadge = lastDate ? `<span class="ct-paid-date">(${fmtDateShort(lastDate)})</span>` : '';
+      remainingRow = `<div class="ct-row paid"><span class="ct-row-lbl">ค้างชำระ</span><span class="ct-row-val"><strong class="ct-num">${fmtNum(displayAmount)}</strong> บาท <span class="ct-paid-stamp">จ่ายแล้ว</span> ${dateBadge}</span></div>`;
+    }
   }
 
   // Collect date
@@ -24382,7 +24697,7 @@ window.gvBsetCloudMigrateApply = gvBsetCloudMigrateApply;
 <!-- GARDEN FORM SCREEN (full-screen, replaces popup) -->
 <div id="garden-form-screen" style="display:none;"></div>
 
-<button class="fab" id="fab" onclick="onFabClick()">+</button>
+<button class="fab" id="fab" onclick="onFabClick()"><span class="fab-plus">+</span><span class="fab-label">เพิ่มสวน</span></button>
 
 <!-- Bottom nav (visible only on detail view) -->
 <div id="gv-bottom-nav" class="gv-bottom-nav" style="display:none;">
