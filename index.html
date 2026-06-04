@@ -4307,6 +4307,31 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
       z-index: 1;
     }
     #garden-view .garden-card:active { transform: scale(0.98); }
+    /* ป้าย "เปิดใหม่" — ริบบิ้นแดงเฉียง + ออร่าเต้น (แสดง 2 วันแรก) */
+    #garden-view .garden-card.is-new { overflow: visible; }
+    #garden-view .lc-new-badge {
+      position: absolute;
+      top: -9px; left: -9px;
+      z-index: 6;
+      background: linear-gradient(135deg, #ff5e5e, #d11f1f);
+      color: #fff;
+      font-size: 12px; font-weight: 800;
+      padding: 5px 12px;
+      border-radius: 9px;
+      transform: rotate(-12deg);
+      border: 1.5px solid rgba(255,255,255,0.6);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      white-space: nowrap;
+      pointer-events: none;
+      animation: lcNewGlow 1.6s ease-in-out infinite;
+    }
+    @keyframes lcNewGlow {
+      0%, 100% { box-shadow: 0 2px 6px rgba(0,0,0,0.3), 0 0 0 0 rgba(255,80,80,0.55); }
+      50%      { box-shadow: 0 2px 6px rgba(0,0,0,0.3), 0 0 14px 4px rgba(255,80,80,0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #garden-view .lc-new-badge { animation: none; }
+    }
     #garden-view .garden-card.collecting { border-left-color: #6b8e3d; }
     #garden-view .garden-card.waiting { border-left-color: #d4af37; }
     #garden-view .garden-card.no-contract { border-left-color: #c0392b; }
@@ -4329,16 +4354,20 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    #garden-view .lc-fruit-name {
+      border-bottom: 2px solid rgba(74,105,40,0.35);
+      padding-bottom: 1px;
+    }
     #garden-view .lc-name {
       font-family: 'Sarabun', sans-serif;
       font-weight: 800;
-      font-size: 14px;
+      font-size: 17px;
       color: #2a1810;
     }
     #garden-view .lc-fruit {
       color: #6b4423;
       font-weight: 600;
-      font-size: 13px;
+      font-size: 14px;
       margin-left: 2px;
     }
     #garden-view .lc-row1-right {
@@ -4409,46 +4438,104 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
       color: #4a6928;
       font-weight: 700;
     }
+    /* วันที่เปิด + การ์ดวันเที่ยวเก็บ (แบบ 3) */
+    #garden-view .lc-line2-dates { display: block; }
+    #garden-view .lc-drow { display: flex; align-items: center; gap: 5px; }
+    #garden-view .lc-drow:first-child { margin-bottom: 7px; }
+    #garden-view .lc-dlabel { white-space: nowrap; font-size: 11.5px; color: #8b6f3f; font-weight: 700; }
+    #garden-view .lc-dcolon { color: #8b6f3f; font-weight: 700; font-size: 11.5px; }
+    #garden-view .lc-drow .num { color: #4a6928; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+    #garden-view .lc-daywrap { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    #garden-view .lc-daycard {
+      display: inline-flex; flex-direction: column; align-items: center; min-width: 34px;
+      background: #fff; border: 1px solid rgba(107,68,35,0.3); border-radius: 8px;
+      padding: 3px 7px 4px; box-shadow: 0 1px 2px rgba(58,30,15,0.1);
+    }
+    #garden-view .lc-daycard .d { font-size: 12px; font-weight: 800; color: #5a3818; line-height: 1; font-family: 'JetBrains Mono', monospace; }
+    #garden-view .lc-daycard .m { font-size: 8px; color: #9a8a63; font-weight: 600; margin-top: 1px; }
+    #garden-view .lc-daycard.last { border-color: #4a6928; background: #f1f7e8; }
+    #garden-view .lc-daycard.last .d { color: #4a6928; }
 
     #garden-view .lc-bar-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-top: 4px;
+      gap: 9px;
+      margin-top: 30px;   /* เผื่อที่ให้หมุด/ป้ายลอยด้านบน */
     }
     #garden-view .lc-bar-track {
       flex: 1;
-      height: 11px;
-      background: #e0cfa3;
-      border: 1px solid rgba(90,56,24,0.45);
-      border-radius: 6px;
-      box-shadow: inset 0 1px 2px rgba(90,56,24,0.22);
+      height: 12px;
+      background: linear-gradient(180deg,#d8c89e,#e6d6ab);
+      border: 1px solid rgba(90,56,24,0.5);
+      border-radius: 7px;
+      box-shadow: inset 0 1px 3px rgba(90,56,24,0.28);
       position: relative;
     }
     #garden-view .lc-bar-fill {
       height: 100%;
-      border-radius: 5px;
+      border-radius: 6px;
       position: relative;
-      transition: width 0.3s ease;
+      overflow: hidden;
+      transition: width 0.4s cubic-bezier(.22,.61,.36,1);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -2px 3px rgba(0,0,0,0.12);
     }
-    #garden-view .lc-bar-knob {
-      position: absolute;
-      right: 0; top: 50%;
-      transform: translate(50%, -50%);
-      width: 16px; height: 16px;
-      border-radius: 50%;
-      background: #fff;
-      border: 3px solid currentColor;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-      z-index: 2;
+    #garden-view .lc-bar-fill::after {
+      content: ""; position: absolute; inset: 0 0 50% 0;
+      background: linear-gradient(180deg,rgba(255,255,255,0.35),transparent);
+      border-radius: 6px 6px 0 0;
     }
+    #garden-view .lc-bar-fill.over { animation: lcOverPulse 2.4s ease-in-out infinite; }
+    @keyframes lcOverPulse { 0%,100%{filter:brightness(1);} 50%{filter:brightness(1.08);} }
+    @media (prefers-reduced-motion: reduce) { #garden-view .lc-bar-fill.over { animation: none; } }
+
+    /* เส้นขีดเป้า (เลยเป้า) */
+    #garden-view .lc-tgt-tick {
+      position: absolute; top: -4px; bottom: -4px; width: 0;
+      border-left: 2px solid #c0392b; z-index: 2;
+    }
+
+    /* หมุดตรงดิ่ง (กล่อง+เข็ม+จุด) — ทับกันได้ */
+    /* เก็บปัจจุบัน — label เตี้ย (ระดับเดียวกับเป้า) + สามเหลี่ยมชี้ตำแหน่งจริง */
+    #garden-view .lc-curlbl {
+      position: absolute; bottom: 18px;
+      transform: translateX(-50%);
+      white-space: nowrap; font-weight: 800; font-size: 10.5px; padding: 2.5px 8px 3px;
+      border-radius: 9px; line-height: 1.15; font-variant-numeric: tabular-nums;
+      color: #fff; background: linear-gradient(135deg,#7ed957,#2f7d3f);
+      border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 2px 4px rgba(0,0,0,0.28);
+      z-index: 7;
+      transition: left 0.4s cubic-bezier(.22,.61,.36,1);
+    }
+    #garden-view .lc-curlbl::after {
+      content: ""; position: absolute; bottom: -5px;
+      left: var(--tri, 50%); transform: translateX(-50%);
+      border: 5px solid transparent; border-top-color: #2f7d3f; border-bottom: 0;
+    }
+    #garden-view .lc-curlbl.over { background: linear-gradient(135deg,#34c759,#0a7a30); }
+    #garden-view .lc-curlbl.over::after { border-top-color: #0a7a30; }
+    /* เป้า — ลอยปลายหลอด ไม่มีกรอบ + ขีดแดงที่ปลาย */
+    #garden-view .lc-tgt-end {
+      position: absolute; bottom: 18px; right: 0; transform: translateX(50%);
+      font-size: 10.5px; font-weight: 700; color: #c0392b; white-space: nowrap; z-index: 4;
+    }
+    #garden-view .lc-tgt-cap {
+      position: absolute; top: -4px; bottom: -4px; right: 0; width: 2px;
+      background: rgba(192,57,43,0.6); border-radius: 2px; z-index: 3;
+    }
+    /* เลยเป้า — label เหนือเส้นขีดแดง */
+    #garden-view .lc-tgt-ticklbl {
+      position: absolute; bottom: 18px; transform: translateX(-50%);
+      font-size: 10.5px; font-weight: 700; color: #c0392b; white-space: nowrap; z-index: 4;
+    }
+
     #garden-view .lc-bar-pct {
       font-family: 'JetBrains Mono', monospace;
       font-weight: 800;
-      font-size: 11px;
-      color: #4a6928;
-      min-width: 36px;
+      font-size: 12.5px;
+      min-width: 42px;
       text-align: right;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.3px;
     }
 
     #garden-view .gc-row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -17226,6 +17313,48 @@ function fmtNum(n) {
   if (n == null || isNaN(n)) return '—';
   return Number(n).toLocaleString('th-TH');
 }
+// อ่านค่าจากช่อง input โดยถอด comma ออกก่อน (ใช้กับช่องเงิน/น้ำหนักที่ฟอร์แมต comma)
+function gfNum(id) {
+  const el = (typeof id === 'string') ? document.getElementById(id) : id;
+  if (!el) return 0;
+  return Number(String(el.value).replace(/[^0-9.\-]/g, '')) || 0;
+}
+// แปลงตัวเลขเป็น string มี comma (ว่าง = '') สำหรับใส่ใน value ตอน render
+function gfMoneyStr(n) {
+  if (n == null || n === '') return '';
+  const x = Number(n);
+  if (isNaN(x)) return '';
+  return x.toLocaleString('en-US');
+}
+// ฟอร์แมต comma สดๆ ตอนพิมพ์ โดยรักษาตำแหน่ง cursor
+function gfFmtMoney(el) {
+  if (!el) return;
+  const old = el.value;
+  const caret = el.selectionStart;
+  const beforeDigits = old.slice(0, caret).replace(/[^0-9.]/g, '').length;
+  let raw = old.replace(/[^0-9.]/g, '');
+  const dotAt = raw.indexOf('.');
+  let intPart, decPart = null;
+  if (dotAt >= 0) {
+    intPart = raw.slice(0, dotAt);
+    decPart = raw.slice(dotAt + 1).replace(/\./g, '').slice(0, 2);
+  } else {
+    intPart = raw;
+  }
+  if (intPart === '' && decPart == null) { el.value = ''; return; }
+  const intNum = (intPart === '') ? '' : Number(intPart).toLocaleString('en-US');
+  let formatted = intNum;
+  if (decPart != null) formatted += '.' + decPart;
+  else if (old.replace(/[^0-9.]/g, '').endsWith('.')) formatted += '.';
+  el.value = formatted;
+  // คืนตำแหน่ง cursor: นับจำนวนหลัก/จุดก่อน cursor เดิม แล้วหาตำแหน่งใหม่
+  let seen = 0, pos = 0;
+  while (pos < formatted.length && seen < beforeDigits) {
+    if (/[0-9.]/.test(formatted[pos])) seen++;
+    pos++;
+  }
+  try { el.setSelectionRange(pos, pos); } catch (e) {}
+}
 function uid() { return 'x_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,5); }
 function calcDayProgress(g) {
   // Prefer openedAt (actual day garden was opened) over collectStartDate (planned)
@@ -17788,6 +17917,39 @@ function renderChips() {
   }
 }
 
+// ── จัดตำแหน่งหมุดหลอดผลผลิต (วัดกล่องจริง, ทับกันได้, ไม่หลุดขอบ) ──
+function refineBars() {
+  document.querySelectorAll('#garden-view .lc-bar-track').forEach(trk => {
+    const W = trk.clientWidth; if (!W) return;
+    const lbl = trk.querySelector('.lc-curlbl');
+    if (lbl) {
+      const cw = lbl.offsetWidth;
+      const x = W * (parseFloat(lbl.dataset.x) || 0) / 100;  // ตำแหน่งจริงบนหลอด
+      // กล่องอยู่กึ่งกลางตำแหน่งจริง (ลูกศรอยู่กลางกล่อง) — clamp เฉพาะซ้ายกันหลุดขอบ
+      // ด้านขวาปล่อยล้นได้ (ไปอยู่เหนือ % คนละระดับ ไม่ชนกัน) เลยเป้า=ปลายหลอดพอดี
+      const c = Math.max(cw/2 + 1, x);
+      lbl.style.left = c + 'px';
+      lbl.style.removeProperty('--tri');  // ลูกศรกลางกล่อง
+    }
+  });
+  // จัดโคลอนหัวข้อ (วันที่เปิด / เก็บ N เที่ยว) ให้ตรงกัน — วัดหัวข้อยาวสุดในแต่ละการ์ด
+  document.querySelectorAll('#garden-view .garden-card').forEach(card => {
+    const lbls = card.querySelectorAll('.lc-dlabel');
+    if (lbls.length < 2) return;
+    let max = 0;
+    lbls.forEach(l => { l.style.width = 'auto'; });
+    lbls.forEach(l => { if (l.offsetWidth > max) max = l.offsetWidth; });
+    if (max > 0) lbls.forEach(l => { l.style.width = max + 'px'; });
+  });
+}
+window.refineBars = refineBars;
+if (!window._refineBarsBound) {
+  window._refineBarsBound = true;
+  let _rbT;
+  window.addEventListener('resize', () => { clearTimeout(_rbT); _rbT = setTimeout(refineBars, 80); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { try { refineBars(); } catch(e){} });
+}
+
 function renderListView() {
   document.getElementById('page-sub').textContent = `No. II · ${gardens.length} สวน`;
   renderChips();
@@ -17937,13 +18099,30 @@ function renderListView() {
     let row2Html = '';
     const isOpened = (g.status === 'collecting' || g.openedAt);
     if (isOpened) {
-      // Opened — show "เปิดสวน X วัน · เก็บ Y เที่ยว"
-      const days = prog ? prog.days : 0;
-      const trips = (g.collections||[]).length;
-      row2Html = `<span class="lc-line2">
-        <span class="lbl">เปิดสวน</span> <span class="num">${days}</span> วัน
-        · <span class="lbl">เก็บ</span> <span class="num">${trips}</span> เที่ยว
-      </span>`;
+      // วันที่เปิด = เที่ยวแรก (วันที่หัวบิลเข้าเก็บวันแรก) + การ์ดวันแต่ละเที่ยว
+      const colls = (g.collections||[]).filter(c => c && c.date).slice()
+        .sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      const trips = colls.length;
+      if (trips > 0) {
+        const openTxt = fmtDateShort(colls[0].date);  // เช่น 01/05/68
+        const dayCards = colls.map((c, i) => {
+          const d = new Date(c.date);
+          const dd = isNaN(d.getTime()) ? '?' : d.getDate();
+          const mm = isNaN(d.getTime()) ? '' : d.toLocaleDateString('th-TH', { month: 'short' });
+          const last = (i === colls.length - 1) ? ' last' : '';
+          return `<span class="lc-daycard${last}"><span class="d">${dd}</span><span class="m">${gbEscapeHtml(mm)}</span></span>`;
+        }).join('');
+        row2Html = `<span class="lc-line2 lc-line2-dates">
+          <span class="lc-drow"><span class="lc-dlabel">วันที่เปิด</span><span class="lc-dcolon">:</span><span class="num">${openTxt}</span></span>
+          <span class="lc-drow"><span class="lc-dlabel">เก็บ ${trips} เที่ยว</span><span class="lc-dcolon">:</span><span class="lc-daywrap">${dayCards}</span></span>
+        </span>`;
+      } else {
+        // เปิดแล้วแต่ยังไม่มีเที่ยวเก็บ
+        const days = prog ? prog.days : 0;
+        row2Html = `<span class="lc-line2">
+          <span class="lbl">เปิดสวน</span> <span class="num">${days}</span> วัน · <span class="lbl">ยังไม่เก็บ</span>
+        </span>`;
+      }
     } else {
       // Not opened yet
       if (g.collectStartDate) {
@@ -17959,36 +18138,40 @@ function renderListView() {
       }
     }
 
-    // Progress bar — based on totalKg / expectedKg (gradient color follows true %)
+    // Progress bar — เก็บปัจจุบัน (totKg) เทียบเป้า (expectedKg) แบบหมุดคู่ทับกัน
     let progBarHtml = '';
     if (isOpened && g.expectedKg) {
       const totKg = (g.collections||[]).reduce((s,c) => s + (Number(c.kg)||0), 0);
-      const rawPct = (totKg / g.expectedKg) * 100;
-      const fillPct = Math.min(100, Math.max(0, rawPct));
-      const pctTxt = Math.round(rawPct) + '%';
+      const tgtKg = Number(g.expectedKg) || 0;
+      const rawPct = tgtKg > 0 ? (totKg / tgtKg) * 100 : 0;
       const isExceeded = rawPct > 100;
-      // Scale gradient so fill shows the true position on the gradient
-      // (when fillPct=17, the rendered bar's 17% width must show the gradient's 17% color)
+      // เลยเป้า: หลอด = 0..totKg เต็ม, เป้าอยู่ที่ tgt/cur ; ปกติ: หลอด = rawPct, เป้าอยู่ปลาย 100%
+      const fillPct = isExceeded ? 100 : Math.min(100, Math.max(0, rawPct));
+      const curPct  = isExceeded ? 100 : Math.min(100, Math.max(0, rawPct));
+      const tgtPct  = isExceeded ? (totKg > 0 ? (tgtKg / totKg) * 100 : 100) : 100;
+      const pctTxt = Math.round(rawPct) + '%';
       const gradScale = isExceeded ? 100 : (fillPct > 0 ? Math.round(10000 / Math.max(fillPct, 1)) : 100);
-      // Solid color at the fill's tip (for the position knob border)
-      let knobColor = '#ef9f27';
-      if (isExceeded) knobColor = '#34c759';
-      else if (rawPct >= 75) knobColor = '#639922';
-      else if (rawPct >= 50) knobColor = '#97c459';
-      else if (rawPct >= 30) knobColor = '#fcd34d';
-      else if (rawPct >= 15) knobColor = '#f0c060';
       const fillStyle = isExceeded
-        ? `width:100%;background:#34c759;color:${knobColor};`
-        : `width:${fillPct}%;background:linear-gradient(90deg,#ef9f27 0%,#f0c060 30%,#fcd34d 50%,#97c459 75%,#639922 100%);background-size:${gradScale}% 100%;background-repeat:no-repeat;color:${knobColor};`;
-      // Pct text color follows the bar
+        ? `width:100%;background:linear-gradient(90deg,#34c759,#0a7a30);`
+        : `width:${fillPct}%;background:linear-gradient(90deg,#ef9f27 0%,#f0c060 30%,#fcd34d 50%,#97c459 75%,#639922 100%);background-size:${gradScale}% 100%;background-repeat:no-repeat;`;
       let pctColor = '#b85a00';
       if (isExceeded) pctColor = '#166534';
       else if (rawPct >= 90) pctColor = '#2c4a08';
       else if (rawPct >= 60) pctColor = '#4a6928';
       else if (rawPct >= 30) pctColor = '#854f0b';
+      const curLbl = fmtNum(totKg) + (isExceeded ? ' ⬆' : '');
+      const tgtLbl = '🎯 ' + fmtNum(tgtKg);
+      // เป้า: ปกติอยู่ปลายหลอด (ไม่มีกรอบ + ขีดทอง) ; เลยเป้าอยู่ที่เส้นขีดแดง
+      const tgtEls = isExceeded
+        ? `<span class="lc-tgt-tick" style="left:${tgtPct}%"></span><span class="lc-tgt-ticklbl" style="left:${tgtPct}%">${tgtLbl}</span>`
+        : `<span class="lc-tgt-cap"></span><span class="lc-tgt-end">${tgtLbl}</span>`;
       progBarHtml = `
         <div class="lc-bar-row">
-          <div class="lc-bar-track"><div class="lc-bar-fill" style="${fillStyle}"><span class="lc-bar-knob"></span></div></div>
+          <div class="lc-bar-track">
+            <div class="lc-bar-fill ${isExceeded?'over':''}" style="${fillStyle}"></div>
+            ${tgtEls}
+            <span class="lc-curlbl ${isExceeded?'over':''}" data-x="${curPct}">${curLbl}</span>
+          </div>
           <span class="lc-bar-pct" style="color:${pctColor};">${pctTxt}</span>
         </div>`;
     }
@@ -18001,12 +18184,16 @@ function renderListView() {
                : g.status === 'no-contract' ? 'no-contract'
                : '';
 
+    // สวนเปิดใหม่: createdAt ภายใน 2 วัน (ยังไม่ปิดสวน)
+    const _isNewGarden = g.createdAt && (Date.now() - g.createdAt < 2*24*60*60*1000) && !(g.status === 'done' || g.closedAt);
+
     return `
-      <div class="garden-card ${g.status} lc-v3 ${sCls}${isArchived(g)?' archived':''}" onclick="openDetail('${g.id}')">
+      <div class="garden-card ${g.status} lc-v3 ${sCls}${isArchived(g)?' archived':''}${_isNewGarden?' is-new':''}" onclick="openDetail('${g.id}')">
+        ${_isNewGarden ? '<span class="lc-new-badge">เปิดใหม่</span>' : ''}
         <div class="lc-row1">
           <div class="lc-name-block">
             <span class="lc-name">${gbEscapeHtml(g.name||'')}</span>
-            <span class="lc-fruit">— ${gbEscapeHtml(g.fruit||'—')}</span>
+            <span class="lc-fruit">— <span class="lc-fruit-name">${gbEscapeHtml(g.fruit||'—')}</span></span>
           </div>
           <div class="lc-row1-right">
             ${row1Chips.join('')}
@@ -18048,6 +18235,8 @@ function renderListView() {
       });
     });
   }, 30);
+  // จัดตำแหน่งหมุดหลอดผลผลิตให้เป๊ะระดับพิกเซล
+  if (typeof refineBars === 'function') { refineBars(); setTimeout(refineBars, 60); }
 }
 
 // ── Notes Preview · Sticky Stack (สูงสุด 4 · ใต้ list) ──
@@ -18927,12 +19116,12 @@ function openGardenForm(id) {
             <div class="combo-stack">
               <div class="combo-input">
                 <span class="combo-mini-lbl">ราคาเหมา</span>
-                <input id="gf-lump-total" type="number" inputmode="decimal" value="${g.lumpTotal!=null?Number(g.lumpTotal):''}" placeholder="100000" oninput="updateRemaining();updateCostPerKg()">
+                <input id="gf-lump-total" type="text" inputmode="numeric" value="${gfMoneyStr(g.lumpTotal)}" placeholder="100000" oninput="gfFmtMoney(this);updateRemaining();updateCostPerKg()">
                 <span class="combo-unit">บ.</span>
               </div>
               <div class="combo-input">
                 <span class="combo-mini-lbl">น้ำหนักคาด</span>
-                <input id="gf-expected-kg" type="number" inputmode="decimal" value="${g.expectedKg!=null?Number(g.expectedKg):''}" placeholder="คาดว่าจะได้กี่ กก." oninput="updateCostPerKg()">
+                <input id="gf-expected-kg" type="text" inputmode="numeric" value="${gfMoneyStr(g.expectedKg)}" placeholder="คาดว่าจะได้กี่ กก." oninput="gfFmtMoney(this);updateCostPerKg()">
                 <span class="combo-unit">กก.</span>
               </div>
             </div>
@@ -18947,7 +19136,7 @@ function openGardenForm(id) {
             </div>
             <label>มัดจำ</label>
             <div class="deposit-stack">
-              <input id="gf-deposit" type="number" inputmode="decimal" value="${g.deposit!=null?Number(g.deposit):''}" placeholder="20000" oninput="updateRemaining()">
+              <input id="gf-deposit" type="text" inputmode="numeric" value="${gfMoneyStr(g.deposit)}" placeholder="20000" oninput="gfFmtMoney(this);updateRemaining()">
               <div class="date-line">
                 <span>วันที่:</span>
                 <input id="gf-deposit-date" type="date" value="${gbEscapeHtml(g.depositDate||todayISO())}">
@@ -18971,13 +19160,13 @@ function openGardenForm(id) {
               </div>
               <div class="combo-input">
                 <span class="combo-mini-lbl">น้ำหนักคาด</span>
-                <input id="gf-expected-kg2" type="number" inputmode="decimal" value="${g.expectedKg!=null?Number(g.expectedKg):''}" placeholder="คาดว่าจะได้กี่ กก.">
+                <input id="gf-expected-kg2" type="text" inputmode="numeric" value="${gfMoneyStr(g.expectedKg)}" placeholder="คาดว่าจะได้กี่ กก." oninput="gfFmtMoney(this)">
                 <span class="combo-unit">กก.</span>
               </div>
             </div>
             <label>มัดจำ</label>
             <div class="deposit-stack">
-              <input id="gf-deposit2" type="number" inputmode="decimal" value="${g.deposit!=null?Number(g.deposit):''}" placeholder="(ถ้ามี)">
+              <input id="gf-deposit2" type="text" inputmode="numeric" value="${gfMoneyStr(g.deposit)}" placeholder="(ถ้ามี)" oninput="gfFmtMoney(this)">
               <div class="date-line">
                 <span>วันที่:</span>
                 <input id="gf-deposit-date2" type="date" value="${gbEscapeHtml(g.depositDate||todayISO())}">
@@ -18994,12 +19183,12 @@ function openGardenForm(id) {
           <div class="d-grid">
             <label>น้ำหนักคาด</label>
             <div class="combo-input">
-              <input id="gf-expected-kg3" type="number" inputmode="decimal" value="${g.expectedKg!=null?Number(g.expectedKg):''}" placeholder="คาดว่าจะได้กี่ กก.">
+              <input id="gf-expected-kg3" type="text" inputmode="numeric" value="${gfMoneyStr(g.expectedKg)}" placeholder="คาดว่าจะได้กี่ กก." oninput="gfFmtMoney(this)">
               <span class="combo-unit">กก.</span>
             </div>
             <label>มัดจำ</label>
             <div class="deposit-stack">
-              <input id="gf-deposit3" type="number" inputmode="decimal" value="${g.deposit!=null?Number(g.deposit):''}" placeholder="(ถ้ามี)">
+              <input id="gf-deposit3" type="text" inputmode="numeric" value="${gfMoneyStr(g.deposit)}" placeholder="(ถ้ามี)" oninput="gfFmtMoney(this)">
               <div class="date-line">
                 <span>วันที่:</span>
                 <input id="gf-deposit-date3" type="date" value="${gbEscapeHtml(g.depositDate||todayISO())}">
@@ -19127,8 +19316,8 @@ function onPriceTBDChange() {
 }
 
 function updateRemaining() {
-  const total = Number(document.getElementById('gf-lump-total')?.value) || 0;
-  const deposit = Number(document.getElementById('gf-deposit')?.value) || 0;
+  const total = gfNum('gf-lump-total');
+  const deposit = gfNum('gf-deposit');
   const remaining = total - deposit;
   const el = document.getElementById('gf-remaining-display');
   if (!el) return;
@@ -19158,22 +19347,22 @@ function updateRemaining() {
 
 // ── ปุ่มจ่ายทั้งหมด ──
 function payAllDeposit() {
-  const total = Number(document.getElementById('gf-lump-total')?.value) || 0;
+  const total = gfNum('gf-lump-total');
   const depEl = document.getElementById('gf-deposit');
   if (!depEl) return;
   if (total <= 0) {
     if (typeof toast === 'function') toast('⚠ ใส่ราคาเหมาก่อน');
     return;
   }
-  depEl.value = total;
+  depEl.value = gfMoneyStr(total);
   if (typeof updateRemaining === 'function') updateRemaining();
   if (typeof toast === 'function') toast('✓ ตั้งจ่ายเต็มจำนวน '+fmtNum(total)+' บ.');
 }
 window.payAllDeposit = payAllDeposit;
 
 function updateCostPerKg() {
-  const total = Number(document.getElementById('gf-lump-total')?.value) || 0;
-  const kg = Number(document.getElementById('gf-expected-kg')?.value) || 0;
+  const total = gfNum('gf-lump-total');
+  const kg = gfNum('gf-expected-kg');
   const valEl = document.getElementById('gf-cost-val');
   const cardEl = document.getElementById('gf-cost-card');
   if (!valEl || !cardEl) return;
@@ -19229,13 +19418,13 @@ function saveGarden() {
 
   let deposit = 0, depositDate = '';
   if (dealType === 'lump') {
-    deposit = Number(document.getElementById('gf-deposit').value) || 0;
+    deposit = gfNum('gf-deposit');
     depositDate = document.getElementById('gf-deposit-date').value;
   } else if (dealType === 'kg-all') {
-    deposit = Number(document.getElementById('gf-deposit2').value) || 0;
+    deposit = gfNum('gf-deposit2');
     depositDate = document.getElementById('gf-deposit-date2').value;
   } else if (dealType === 'kg-grade') {
-    deposit = Number(document.getElementById('gf-deposit3').value) || 0;
+    deposit = gfNum('gf-deposit3');
     depositDate = document.getElementById('gf-deposit-date3').value;
   }
 
@@ -19267,11 +19456,11 @@ function saveGarden() {
     careRating, yieldRating, memoRating,
     priceTBD: document.getElementById('gf-price-tbd').checked,
     dealType,
-    lumpTotal: dealType === 'lump' ? (Number(document.getElementById('gf-lump-total').value) || 0) : 0,
+    lumpTotal: dealType === 'lump' ? (gfNum('gf-lump-total')) : 0,
     expectedKg: (() => {
-      if (dealType === 'lump') return Number(document.getElementById('gf-expected-kg')?.value) || 0;
-      if (dealType === 'kg-all') return Number(document.getElementById('gf-expected-kg2')?.value) || 0;
-      if (dealType === 'kg-grade') return Number(document.getElementById('gf-expected-kg3')?.value) || 0;
+      if (dealType === 'lump') return gfNum('gf-expected-kg');
+      if (dealType === 'kg-all') return gfNum('gf-expected-kg2');
+      if (dealType === 'kg-grade') return gfNum('gf-expected-kg3');
       return 0;
     })(),
     kgPrice: dealType === 'kg-all' ? (Number(document.getElementById('gf-kg-price').value) || 0) : 0,
@@ -19291,6 +19480,7 @@ function saveGarden() {
     gardens.unshift({
       id: uid(), ...data,
       collections: [], expenses: [],
+      createdAt: Date.now(),
     });
   }
   // Resync pay-owner expenses if prices changed
