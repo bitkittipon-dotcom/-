@@ -1328,6 +1328,8 @@ window.supaReady = false;
     box-shadow: 2px 2px 0 rgba(0,0,0,0.06);
     transition: all 0.1s;
     position: relative;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
   }
   .list-card:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 rgba(0,0,0,0.1); }
   .list-card.pending-review {
@@ -5423,10 +5425,11 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     max-height: 80vh;
   }
   .orig-drawer-handle {
-    padding: 6px 0 4px;
+    padding: 14px 0 12px;
     cursor: ns-resize;
     flex-shrink: 0;
     background: rgba(107,142,61,0.08);
+    touch-action: none;
   }
   .orig-drawer-handle .grip-bar {
     width: 40px;
@@ -5497,6 +5500,26 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     flex: 1;
     color: #2a1810;
     font-size: 13px;
+  }
+  .orig-full-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; margin: 2px 0 12px; padding: 11px;
+    border: 0; border-radius: 9px; cursor: pointer; font-family: inherit;
+    background: linear-gradient(180deg,#6b8e3d,#4a6928); color: #fff;
+    font-size: 14px; font-weight: 800;
+    box-shadow: 0 2px 0 #2d3325, inset 0 1px 0 rgba(255,255,255,0.25);
+  }
+  .orig-full-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #2d3325; }
+  /* โหมดดูอย่างเดียว — ปิดการแตะใน detail-view ทั้งหมด (เลื่อนได้ปกติ) */
+  #garden-view.gv-readonly #detail-view { pointer-events: none; }
+  /* แต่ bottom nav ยังกดสลับแท็บได้ + ปุ่มกลับยังกดได้ */
+  #garden-view.gv-readonly #gv-bottom-nav,
+  #garden-view.gv-readonly .gv-back-btn { pointer-events: auto; }
+  #garden-view.gv-readonly .gv-ro-banner {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    margin: 0 0 10px; padding: 7px 10px; border-radius: 8px;
+    background: rgba(107,142,61,0.16); border: 1px solid rgba(74,105,40,0.35);
+    color: #3a5a18; font-size: 12.5px; font-weight: 700;
   }
   .orig-bill-card {
     background: rgba(255,255,255,0.6);
@@ -10629,7 +10652,7 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
       <div class="orig-drawer-body" id="orig-drawer-body"></div>
     </div>
     <div class="paper">
-      <button id="orig-bill-trigger" class="orig-bill-trigger" onclick="openOrigBillDrawer()" style="display:none;">
+      <button id="orig-bill-trigger" class="orig-bill-trigger" onclick="toggleOrigBillDrawer()" style="display:none;">
         📑 ดูบิลต้นฉบับ
       </button>
 
@@ -11238,6 +11261,7 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     <div class="settings-wrap">
       <div class="settings-card">
         <h3>ข้อมูล</h3>
+        <button class="btn ghost" onclick="forceFullResync()">🔄 ดึงข้อมูลใหม่ทั้งหมด (จาก cloud)</button>
         <button class="btn ghost" onclick="exportData()">📤 Export ข้อมูล</button>
         <button class="btn ghost" onclick="document.getElementById('import-file').click()">📥 Import ข้อมูล</button>
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
@@ -12094,6 +12118,8 @@ function quoteBackOrHome() {
 
 // Smart back button: garden detail → garden list → home
 function smartBack() {
+  // โหมดดูสวนอย่างเดียว (เปิดจากบิล) → ปิดแล้วกลับไปบิล
+  if (_roFromBook) { closeGardenFull(); return; }
   const gv = document.getElementById('garden-view');
   const inGarden = gv && gv.style.display !== 'none';
   // ถ้าอยู่ใน garden detail view, ให้กลับไปที่ list ของสวน
@@ -12846,10 +12872,8 @@ function setupVSwipe() {
         const v = VTAB_ORDER[newIdx];
         vintageSwitchView(v, ribbons[newIdx], { clientX: t.clientX, clientY: t.clientY });
       }
-    } else if (dy > 100 && absY > absX * 1.8) {
-      // swipe down → go home
-      goHome();
     }
+    // (ปิด gesture ปัดลง→กลับหน้าหลักแล้ว — ใช้ปุ่ม "กลับ" แทน กันหลุดออกโดยไม่ตั้งใจ)
     vSwipeStart = null;
   }, { passive: true });
 }
@@ -15729,10 +15753,18 @@ async function delQuote(id, ev) {
   toast('ลบแล้ว');
 }
 
-function duplicateQuote(id, ev) {
-  ev.stopPropagation();
+async function duplicateQuote(id, ev) {
+  if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
   const q = state.quotes.find(x => x.id === id);
   if (!q) return;
+  const name = q.customer ? q.customer : 'รายการนี้';
+  const ok = await confirmAction({
+    title: 'ทำสำเนารายการนี้?',
+    body: `สร้างสำเนาของ <b>${gbEscapeHtml(name)}</b> เป็นรายการใหม่ (วันที่วันนี้) ใช่ไหม?`,
+    okLabel: '📋 ทำสำเนา',
+    cancelLabel: 'ยกเลิก',
+  });
+  if (!ok) return;
   const copy = JSON.parse(JSON.stringify(q));
   copy.id = uid();
   copy.date = todayISO();
@@ -15755,7 +15787,7 @@ function setupOrigBillDrawer(q) {
   const trigger = document.getElementById('orig-bill-trigger');
   const drawer = document.getElementById('orig-bill-drawer');
   if (trigger) trigger.style.display = 'none';
-  if (drawer) drawer.classList.remove('open', 'expanded');
+  if (drawer) { drawer.classList.remove('open', 'expanded'); drawer.style.height = ''; drawer.style.maxHeight = ''; }
   _origBillSource = null;
   _origBillTab = 'all';
 
@@ -15779,6 +15811,7 @@ function setupOrigBillDrawer(q) {
     dates: q.fromBills.slice().sort(),
     billsByDate,
     gardenName: g.name || '',
+    gardenId: g.id,
   };
   // Show trigger
   if (trigger) trigger.style.display = '';
@@ -15788,14 +15821,28 @@ function openOrigBillDrawer() {
   if (!_origBillSource) return;
   const drawer = document.getElementById('orig-bill-drawer');
   if (!drawer) return;
+  // ล้าง inline height ที่อาจค้างจากการลาก เพื่อให้ class คุมความสูง
+  drawer.style.height = '';
+  drawer.style.maxHeight = '';
   drawer.classList.add('open');
   renderOrigBillDrawer();
+}
+
+// สลับเปิด/ปิด — กดปุ่ม "ดูบิลต้นฉบับ" ซ้ำเพื่อซ่อนกลับ
+function toggleOrigBillDrawer() {
+  const drawer = document.getElementById('orig-bill-drawer');
+  if (!drawer) return;
+  if (drawer.classList.contains('open')) closeOrigBillDrawer();
+  else openOrigBillDrawer();
 }
 
 function closeOrigBillDrawer() {
   const drawer = document.getElementById('orig-bill-drawer');
   if (!drawer) return;
   drawer.classList.remove('open', 'expanded');
+  // ล้าง inline height ที่ตั้งจากการลาก ไม่งั้น drawer จะไม่ยุบ
+  drawer.style.height = '';
+  drawer.style.maxHeight = '';
 }
 
 function pickOrigBillTab(tab) {
@@ -15810,6 +15857,7 @@ function renderOrigBillDrawer() {
   const tabsEl = document.getElementById('orig-drawer-tabs');
   const bodyEl = document.getElementById('orig-drawer-body');
   if (!meta || !tabsEl || !bodyEl) return;
+  const _gid = _origBillSource.gardenId;
 
   // Header meta
   const dateLabel = dates.length === 1 ? fmtDate(dates[0]) : `${fmtDate(dates[0])} – ${fmtDate(dates[dates.length-1])}`;
@@ -15885,6 +15933,11 @@ function renderOrigBillDrawer() {
       </div>
     `;
   }
+  // ปุ่มดูการ์ดสวนฉบับเต็ม (read-only) — อยู่หัว body ทุกแท็บ
+  if (_gid) {
+    bodyEl.insertAdjacentHTML('afterbegin',
+      `<button class="orig-full-btn" onclick="openGardenFull('${_gid}')">🌳 ดูการ์ดสวนฉบับเต็ม</button>`);
+  }
 }
 
 // Drag-to-resize handle
@@ -15892,27 +15945,42 @@ function renderOrigBillDrawer() {
   function attach() {
     const handle = document.getElementById('orig-drawer-handle');
     if (!handle) { setTimeout(attach, 200); return; }
-    let dragStartY = 0, startHeight = 0, dragging = false;
+    let dragStartY = 0, startHeight = 0, dragging = false, lastH = 0;
     function down(e) {
       const drawer = document.getElementById('orig-bill-drawer');
       if (!drawer || !drawer.classList.contains('open')) return;
       dragging = true;
       dragStartY = (e.touches ? e.touches[0].clientY : e.clientY);
       startHeight = drawer.getBoundingClientRect().height;
+      lastH = startHeight;
       e.preventDefault();
     }
     function move(e) {
       if (!dragging) return;
       const y = (e.touches ? e.touches[0].clientY : e.clientY);
-      const dy = dragStartY - y;
-      const newH = Math.max(120, Math.min(window.innerHeight * 0.9, startHeight + dy));
+      const dy = dragStartY - y;                 // ลากขึ้น = บวก, ลากลง = ลบ
+      const maxH = window.innerHeight * 0.9;
+      let newH = Math.max(60, Math.min(maxH, startHeight + dy));  // ลากลงได้ถึง 60px
+      lastH = newH;
       const drawer = document.getElementById('orig-bill-drawer');
       if (drawer) {
         drawer.style.height = newH + 'px';
-        drawer.style.maxHeight = (window.innerHeight * 0.9) + 'px';
+        drawer.style.maxHeight = maxH + 'px';
+      }
+      e.preventDefault();                        // กันหน้าเลื่อนตามขณะลาก
+    }
+    function up() {
+      if (!dragging) return;
+      dragging = false;
+      const drawer = document.getElementById('orig-bill-drawer');
+      if (!drawer) return;
+      // ลากลงต่ำกว่าเกณฑ์ → ปิด drawer / ไม่งั้น sync คลาส expanded
+      if (lastH < 130) {
+        closeOrigBillDrawer();
+      } else {
+        drawer.classList.toggle('expanded', lastH > window.innerHeight * 0.6);
       }
     }
-    function up() { dragging = false; }
     handle.addEventListener('mousedown', down);
     handle.addEventListener('touchstart', down, { passive: false });
     document.addEventListener('mousemove', move);
@@ -16421,9 +16489,13 @@ function cloudStartSyncLoop() {
     clearInterval(_cloudSyncLoopHandle);
     _cloudSyncLoopHandle = null;
   }
-  // sync แรกทันที
+  // ดึงเต็ม 1 ครั้งตอนล็อกอิน/เปิดแอป — รีเซ็ตตัวชี้เวลาให้ครั้งแรกเป็น full pull
+  // (cloudSyncOnce จะ push ของค้างขึ้นก่อนเสมอ จึงไม่เสี่ยงข้อมูลหาย)
+  // หลังจากนั้นรอบ 30 วิจะเป็น incremental ตามปกติ
+  cloudSetLastSync('1970-01-01T00:00:00Z');
+  // sync แรกทันที (= full pull)
   cloudScheduleSync(500);
-  // วนทุก N วิ
+  // วนทุก N วิ (incremental)
   _cloudSyncLoopHandle = setInterval(() => {
     cloudScheduleSync(0);
   }, window.SUPA_CONFIG.syncIntervalMs);
@@ -16469,6 +16541,40 @@ async function cloudSyncOnce() {
     cloudUpdateIndicator();
   }
 }
+
+// ── Full re-sync · ดึงข้อมูลทั้งหมดจาก cloud ใหม่ (รีเซ็ตตัวชี้เวลา sync) ──
+async function forceFullResync() {
+  if (!window.supaReady || typeof currentUser === 'undefined' || !currentUser) {
+    toast('ยังไม่ได้เชื่อมต่อ cloud / เข้าสู่ระบบ'); return;
+  }
+  if (!navigator.onLine) { toast('ออฟไลน์อยู่ — เชื่อมเน็ตก่อน'); return; }
+  const ok = await confirmAction({
+    title: 'ดึงข้อมูลใหม่ทั้งหมด?',
+    body: 'จะดึงใบตีราคา/สวน/โน้ต <b>ทั้งหมด</b> จาก cloud มาแสดงใหม่ (รวมที่โปรไฟล์อื่นสร้างไว้)<br><br><span style="color:#5a4a2c;font-size:13px;">ใช้เวลาสักครู่ · ข้อมูลในเครื่องที่ยังไม่ได้อัปโหลดจะถูกอัปโหลดก่อน</span>',
+    okLabel: '🔄 ดึงใหม่',
+    cancelLabel: 'ยกเลิก',
+  });
+  if (!ok) return;
+  toast('กำลังดึงข้อมูล...');
+  try {
+    if (typeof cloudPushDirty === 'function') await cloudPushDirty();  // อัปโหลดของค้างก่อน กันหาย
+    cloudSetLastSync('1970-01-01T00:00:00Z');  // รีเซ็ตตัวชี้ → pull ดึงทุกอย่างตั้งแต่ต้น
+    await cloudPullUpdates();
+    if (currentUser && currentUser.role === 'admin' && typeof _cloudPullUsers === 'function') {
+      await _cloudPullUsers();
+    }
+    if (typeof renderList === 'function') renderList();
+    if (typeof renderListView === 'function') renderListView();
+    if (typeof renderBooks === 'function') renderBooks();
+    _cloudStatus = 'synced'; _cloudLastSync = Date.now();
+    if (typeof cloudUpdateIndicator === 'function') cloudUpdateIndicator();
+    toast('ดึงข้อมูลครบแล้ว ✓');
+  } catch (e) {
+    console.error('[cloud] full resync error', e);
+    toast('ดึงข้อมูลไม่สำเร็จ — ลองใหม่');
+  }
+}
+window.forceFullResync = forceFullResync;
 
 // ── Push: dirty gardens/notes/deletes ขึ้น cloud ──
 async function cloudPushDirty() {
@@ -18440,6 +18546,40 @@ function openDetail(id) {
   renderDetail();
 }
 
+// ── ดูการ์ดสวนฉบับเต็ม (read-only) เปิดจากบิลตีราคา ──
+let _roFromBook = false;
+function openGardenFull(gid) {
+  if (!gid) return;
+  if (!gardens.find(x => x.id === gid)) { toast('ไม่พบสวนนี้'); return; }
+  _roFromBook = true;
+  if (typeof closeOrigBillDrawer === 'function') closeOrigBillDrawer();
+  // สลับ top-level: ซ่อนสมุดบิล → โชว์หน้าสวน
+  const bv = document.getElementById('book-view');
+  if (bv) bv.style.display = 'none';
+  const gv = document.getElementById('garden-view');
+  if (!gv) return;
+  gv.style.display = '';
+  gv.classList.add('gv-readonly');
+  const tb = document.getElementById('topbar'); if (tb) tb.style.display = 'none';
+  // เปิดหน้ารายละเอียดสวนจริง (renderDetail จะใส่แบนเนอร์ให้เอง)
+  openDetail(gid);
+  try { window.scrollTo({ top: 0, behavior: 'instant' }); } catch (e) { window.scrollTo(0, 0); }
+}
+function closeGardenFull() {
+  _roFromBook = false;
+  const gv = document.getElementById('garden-view');
+  if (gv) {
+    gv.classList.remove('gv-readonly');
+    gv.style.display = 'none';
+  }
+  currentDetailId = null;
+  // กลับไปสมุดบิล (อยู่หน้าเดิมที่เปิดไว้)
+  const bv = document.getElementById('book-view');
+  if (bv) bv.style.display = '';
+}
+window.openGardenFull = openGardenFull;
+window.closeGardenFull = closeGardenFull;
+
 function goBack() {
   if (currentDetailId) {
     currentDetailId = null;
@@ -18910,6 +19050,16 @@ function renderDetail() {
   // After DOM update: if inline collect form is showing, render its rows
   if (typeof cfRenderRows === 'function' && document.getElementById('cf-tbody')) {
     cfRenderRows();
+  }
+  // โหมดดูอย่างเดียว (เปิดจากบิล) → ใส่แบนเนอร์หัว detail ใหม่ทุกครั้ง (กันโดนล้างตอนสลับแท็บ)
+  if (_roFromBook) {
+    const dv = document.getElementById('detail-view');
+    if (dv && !dv.querySelector('.gv-ro-banner')) {
+      const b = document.createElement('div');
+      b.className = 'gv-ro-banner';
+      b.innerHTML = '👁 ดูอย่างเดียว · แก้ไขไม่ได้ · กดแท็บล่างสลับหน้าได้';
+      dv.insertBefore(b, dv.firstChild);
+    }
   }
 }
 
