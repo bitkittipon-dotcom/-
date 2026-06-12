@@ -1359,6 +1359,27 @@ window.supaReady = false;
     text-shadow: 0 1px 2px rgba(255,255,255,0.5);
     box-shadow: inset 0 0 0 1px rgba(192,57,43,0.3), 0 0 12px rgba(192,57,43,0.15);
   }
+  /* แถบมุมซ้ายบน "แจ้งตรวจ" (บิลมาจากสวน) */
+  .list-card .lc-corner-incoming {
+    position: absolute; top: 0; left: 0;
+    display: flex; align-items: center; gap: 4px;
+    padding: 3px 12px 3px 9px; font-size: 11px; font-weight: 800; color: #fff;
+    border-radius: 4px 0 12px 0; z-index: 3;
+    background: linear-gradient(135deg, #d8742a, #b5531d);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .list-card.pending-review .list-card-top { padding-top: 16px; }
+  /* ตราประทับ "ตรวจแล้ว" (บิลแจ้งตรวจที่บันทึกแล้ว) */
+  .list-card .lc-reviewed-stamp {
+    position: absolute; top: 50%; right: 26%;
+    transform: translateY(-50%) rotate(-13deg);
+    border: 2.5px solid rgba(74,105,40,0.55); color: rgba(74,105,40,0.6);
+    padding: 3px 12px; font-size: 15px; font-weight: 900; letter-spacing: 2px;
+    border-radius: 5px; background: rgba(255,255,255,0.08);
+    pointer-events: none; z-index: 1; white-space: nowrap;
+    font-family: 'Sarabun', sans-serif;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.4);
+  }
   .list-card.pending-review .lc-name,
   .list-card.pending-review .lc-fruit,
   .list-card.pending-review .lc-date,
@@ -1367,7 +1388,7 @@ window.supaReady = false;
   .list-card-top {
     display: flex; justify-content: space-between; align-items: baseline;
     margin-bottom: 4px;
-    padding-right: 92px;
+    padding-right: 32px;
   }
   .lc-name { font-weight: 700; font-size: 15px; color: var(--ink); }
   .lc-fruit { font-size: 11px; color: var(--ink-mute); margin-left: 6px; font-weight: 400; }
@@ -1413,29 +1434,19 @@ window.supaReady = false;
   .lc-kg { color: var(--ink-mute); font-size: 11px; margin-left: 6px; }
   .lc-profit { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
   .lc-actions {
-    position: absolute; top: 6px; right: 6px;
+    position: absolute; top: 5px; right: 5px;
     display: flex;
     gap: 4px;
+    z-index: 3;
   }
-  .lc-act {
-    background: transparent;
-    border: 0;
-    color: var(--ink-mute);
-    font-size: 11px;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 3px;
-    font-family: 'Sarabun', sans-serif;
+  .lc-pencil {
+    width: 26px; height: 26px; padding: 0;
+    background: transparent; border: 0; cursor: pointer;
+    color: #9a8458; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
   }
-  .lc-dup:hover {
-    background: rgba(107,142,61,0.12);
-    color: var(--accent);
-  }
-  .lc-del:hover {
-    background: rgba(181,61,42,0.1);
-    color: var(--loss);
-  }
-
+  .lc-pencil:active { background: rgba(107,68,35,0.14); color: #6b4423; }
   .empty-state {
     text-align: center;
     padding: 50px 20px;
@@ -12087,6 +12098,10 @@ function openRecentQuote(qid) {
 
 function goHome() {
   haptic(10);
+  // ล้างสถานะดูสวนอย่างเดียว กันค้าง
+  _roFromBook = false;
+  const _gvRo = document.getElementById('garden-view');
+  if (_gvRo) _gvRo.classList.remove('gv-readonly');
   const inBook = document.getElementById('book-view').style.display !== 'none';
   const gv = document.getElementById('garden-view');
   const inGarden = gv && gv.style.display !== 'none';
@@ -12118,9 +12133,9 @@ function quoteBackOrHome() {
 
 // Smart back button: garden detail → garden list → home
 function smartBack() {
-  // โหมดดูสวนอย่างเดียว (เปิดจากบิล) → ปิดแล้วกลับไปบิล
-  if (_roFromBook) { closeGardenFull(); return; }
   const gv = document.getElementById('garden-view');
+  // โหมดดูสวนอย่างเดียว (เปิดจากบิล) → ตรวจจาก class จริงบนหน้าจอ (กันสถานะค้าง) → ปิดแล้วกลับไปบิล
+  if (gv && gv.classList.contains('gv-readonly')) { closeGardenFull(); return; }
   const inGarden = gv && gv.style.display !== 'none';
   // ถ้าอยู่ใน garden detail view, ให้กลับไปที่ list ของสวน
   if (inGarden && typeof window.goBack === 'function') {
@@ -15599,7 +15614,22 @@ function saveQuote() {
   }
   if (!hasRows) { toast('เพิ่มเบอร์อย่างน้อย 1 แถว'); return; }
   const idx = state.quotes.findIndex(x => x.id === q.id);
-  if (idx >= 0) state.quotes[idx] = q;
+  if (idx >= 0) {
+    const prev = state.quotes[idx];
+    // คงข้อมูลที่ไม่ได้อยู่ในฟอร์มไว้ (ลิงก์สวน/บิลต้นฉบับ) กันหายตอนบันทึก
+    if (prev) {
+      if (prev.gardenId && !q.gardenId) q.gardenId = prev.gardenId;
+      if (prev.fromBills && !q.fromBills) q.fromBills = prev.fromBills;
+      if (prev.isMergedBill !== undefined && q.isMergedBill === undefined) q.isMergedBill = prev.isMergedBill;
+      if (prev.note && !q.note) q.note = prev.note;
+      if (prev.createdAt && !q.createdAt) q.createdAt = prev.createdAt;
+      // บิลแจ้งตรวจ → บันทึกแล้วเปลี่ยนเป็น "ตรวจแล้ว"
+      if (prev.pendingReview) { q.reviewed = true; q.reviewedAt = Date.now(); }
+      else if (prev.reviewed) { q.reviewed = true; q.reviewedAt = prev.reviewedAt || Date.now(); }
+      q.pendingReview = false;
+    }
+    state.quotes[idx] = q;
+  }
   else state.quotes.unshift(q);
   persist();
   // mark recent for current user
@@ -15736,7 +15766,7 @@ function loadQuote(id) {
 }
 
 async function delQuote(id, ev) {
-  ev.stopPropagation();
+  if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
   const q = state.quotes.find(x => x.id === id);
   const name = q && q.customer ? q.customer : 'รายการนี้';
   const ok = await confirmAction({
@@ -15748,10 +15778,36 @@ async function delQuote(id, ev) {
   });
   if (!ok) return;
   state.quotes = state.quotes.filter(x => x.id !== id);
-  persist();
+  try { persist(); } catch (e) { console.error('[del] persist failed', e); }  // อัปเดตจอต่อแม้ storage ถูกบล็อก
   renderList();
   toast('ลบแล้ว');
 }
+
+// เปิดเมนูจัดการจากปุ่มดินสอ (เมนูเดียวกับกดค้าง)
+function openCardMenu(id, ev) {
+  if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+  const q = state.quotes.find(x => x.id === id);
+  if (!q) return;
+  let x = window.innerWidth - 30, y = 120;
+  if (ev) {
+    const t = ev.currentTarget || ev.target;
+    if (t && t.getBoundingClientRect) {
+      const r = t.getBoundingClientRect();
+      x = r.right; y = r.bottom + 4;
+    } else if (typeof ev.clientX === 'number') {
+      x = ev.clientX; y = ev.clientY;
+    }
+  }
+  showContextMenu({
+    x, y,
+    items: [
+      { icon: '✏️', label: 'เปิด/แก้ไข', onClick: () => loadQuote(id) },
+      { icon: '📋', label: 'ทำสำเนา', onClick: () => duplicateQuote(id, { stopPropagation: () => {} }) },
+      { icon: '🗑️', label: 'ลบใบนี้', danger: true, onClick: () => delQuote(id, { stopPropagation: () => {} }) },
+    ]
+  });
+}
+window.openCardMenu = openCardMenu;
 
 async function duplicateQuote(id, ev) {
   if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
@@ -16100,11 +16156,11 @@ function renderList() {
       ? `<span class="lc-type-badge plan">วางแผนซื้อสวน</span>`
       : `<span class="lc-type-badge">ขายส่ง</span>`;
     return `
-      <div class="list-card${q.pendingReview?' pending-review':''}" onclick="loadQuote('${q.id}')">
-        ${q.pendingReview ? '<div class="pending-stamp">แจ้งตรวจ</div>' : ''}
+      <div class="list-card${q.pendingReview?' pending-review':''}${(q.reviewed && !q.pendingReview)?' reviewed':''}" onclick="loadQuote('${q.id}')">
+        ${q.pendingReview ? '<div class="lc-corner-incoming">📩 แจ้งตรวจ</div><div class="pending-stamp">รอตรวจ</div>' : ''}
+        ${(q.reviewed && !q.pendingReview) ? '<div class="lc-reviewed-stamp">✓ ตรวจแล้ว</div>' : ''}
         <div class="lc-actions">
-          <button class="lc-act lc-dup" onclick="duplicateQuote('${q.id}', event)" title="ทำสำเนา">สำเนา</button>
-          <button class="lc-act lc-del" onclick="delQuote('${q.id}', event)" title="ลบ">ลบ</button>
+          <button class="lc-pencil" onclick="openCardMenu('${q.id}', event)" title="จัดการ" aria-label="จัดการ"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
         </div>
         <div class="list-card-top">
           <div><span class="lc-name">${escapeHtml(q.customer || '—')}</span><span class="lc-fruit">${escapeHtml(q.fruit||'')}</span></div>
@@ -18152,6 +18208,13 @@ function renderListView() {
   // apply search/filter
   list = list.filter(matchesFilters);
 
+  // เรียง: เปิดใหม่ล่าสุดอยู่บน (ตาม createdAt, สำรองด้วย openedAt) — slice กันกระทบลำดับ array จริง
+  list = list.slice().sort((a, b) => {
+    const ka = a.createdAt || (a.openedAt ? Date.parse(a.openedAt) : 0) || 0;
+    const kb = b.createdAt || (b.openedAt ? Date.parse(b.openedAt) : 0) || 0;
+    return kb - ka;
+  });
+
   if (list.length === 0) {
     body.innerHTML = `
       <div class="empty">
@@ -18522,6 +18585,10 @@ function switchTab(t) {
 //  DETAIL VIEW
 // ════════════════════════════════════════════
 function openDetail(id) {
+  // เปิดสวนปกติ = ไม่ใช่โหมดดูอย่างเดียว → ล้างสถานะ read-only กันค้าง
+  _roFromBook = false;
+  const _gvRo = document.getElementById('garden-view');
+  if (_gvRo) _gvRo.classList.remove('gv-readonly');
   currentDetailId = id;
   currentDetailTab = 'summary';
   // mark recent for current user
@@ -18551,7 +18618,6 @@ let _roFromBook = false;
 function openGardenFull(gid) {
   if (!gid) return;
   if (!gardens.find(x => x.id === gid)) { toast('ไม่พบสวนนี้'); return; }
-  _roFromBook = true;
   if (typeof closeOrigBillDrawer === 'function') closeOrigBillDrawer();
   // สลับ top-level: ซ่อนสมุดบิล → โชว์หน้าสวน
   const bv = document.getElementById('book-view');
@@ -18559,10 +18625,12 @@ function openGardenFull(gid) {
   const gv = document.getElementById('garden-view');
   if (!gv) return;
   gv.style.display = '';
-  gv.classList.add('gv-readonly');
   const tb = document.getElementById('topbar'); if (tb) tb.style.display = 'none';
-  // เปิดหน้ารายละเอียดสวนจริง (renderDetail จะใส่แบนเนอร์ให้เอง)
+  // เปิดหน้าสวนจริงก่อน (openDetail จะล้าง read-only ให้) แล้วค่อยมาร์คเป็นโหมดดู
   openDetail(gid);
+  _roFromBook = true;
+  gv.classList.add('gv-readonly');
+  if (typeof renderDetail === 'function') renderDetail();  // re-render เพื่อใส่แบนเนอร์ "ดูอย่างเดียว"
   try { window.scrollTo({ top: 0, behavior: 'instant' }); } catch (e) { window.scrollTo(0, 0); }
 }
 function closeGardenFull() {
@@ -18573,6 +18641,7 @@ function closeGardenFull() {
     gv.style.display = 'none';
   }
   currentDetailId = null;
+  const tb = document.getElementById('topbar'); if (tb) tb.style.display = '';  // คืน topbar สมุดบิล
   // กลับไปสมุดบิล (อยู่หน้าเดิมที่เปิดไว้)
   const bv = document.getElementById('book-view');
   if (bv) bv.style.display = '';
