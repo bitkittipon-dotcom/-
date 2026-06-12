@@ -16822,8 +16822,17 @@ function cloudStartSyncLoop() {
     clearInterval(_cloudSyncLoopHandle);
     _cloudSyncLoopHandle = null;
   }
-  // sync แรกแบบ incremental (ไม่รีเซ็ตตัวชี้เป็น epoch — กันการอ่าน tombstone เก่าซ้ำ/ลบข้อมูลที่กู้คืน)
-  // ถ้าต้องการดึงครบทั้งหมด ใช้ปุ่ม "🔄 ดึงข้อมูลใหม่ทั้งหมด" ในตั้งค่า
+  // ── ถ้าข้อมูลในเครื่อง "ว่าง" (เปิดครั้งแรก / เปลี่ยน URL / ล้าง cache) → ดึงเต็มจาก cloud อัตโนมัติ ──
+  // ปลอดภัย: เครื่องว่างอยู่แล้วไม่มีอะไรให้ทับ และ push ไม่ส่งอะไร (dirty ว่าง) จึงไม่กระทบ cloud
+  try {
+    const noGardens = (typeof gardens === 'undefined') || !Array.isArray(gardens) || gardens.length === 0;
+    const noQuotes  = (typeof state === 'undefined') || !state || !Array.isArray(state.quotes) || state.quotes.length === 0;
+    if (noGardens && noQuotes) {
+      cloudSetLastSync('1970-01-01T00:00:00Z'); // → sync แรกเป็น full pull
+      console.log('[cloud] local empty → auto full pull');
+    }
+  } catch (e) {}
+  // sync แรก (incremental ตามปกติ ถ้าเครื่องมีข้อมูลอยู่แล้ว — กันอ่าน tombstone เก่าซ้ำ)
   cloudScheduleSync(500);
   // วนทุก N วิ (incremental)
   _cloudSyncLoopHandle = setInterval(() => {
