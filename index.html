@@ -1343,14 +1343,11 @@ window.supaReady = false;
     transform: translate(-50%, -50%) rotate(-12deg);
     border: 2.5px solid #c0392b;
     color: #c0392b;
-    padding: 4px 14px;
-    font-size: 18px;
-    font-weight: 900;
-    border-radius: 4px;
+    padding: 4px 12px 3px;
+    border-radius: 5px;
     background: rgba(255,255,255,0.1);
-    letter-spacing: 4px;
     pointer-events: none;
-    opacity: 0.55;
+    opacity: 0.6;
     z-index: 1;
     white-space: nowrap;
     max-width: calc(100% - 24px);
@@ -1358,6 +1355,17 @@ window.supaReady = false;
     font-family: 'Sarabun', sans-serif;
     text-shadow: 0 1px 2px rgba(255,255,255,0.5);
     box-shadow: inset 0 0 0 1px rgba(192,57,43,0.3), 0 0 12px rgba(192,57,43,0.15);
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .list-card .pending-stamp .ps-t1 {
+    font-size: 17px; font-weight: 900; letter-spacing: 4px; line-height: 1;
+  }
+  .list-card .pending-stamp .ps-div {
+    width: calc(100% + 16px); height: 1px; background: rgba(192,57,43,0.4); margin: 3px 0;
+  }
+  .list-card .pending-stamp .ps-t2 {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px;
+    font-family: 'JetBrains Mono', monospace;
   }
   /* แถบมุมซ้ายบน "แจ้งตรวจ" (บิลมาจากสวน) */
   .list-card .lc-corner-incoming {
@@ -12862,35 +12870,9 @@ function cornerPeek() {
 
 // ─── SWIPE ───
 let vSwipeStart = null;
+// ปิดฟังก์ชันปัดซ้าย-ขวาสลับแท็บแล้ว (ไม่ใช้) — ใช้แตะที่ ribbon แทน
 function setupVSwipe() {
-  const bv = document.getElementById('book-view');
-  if (!bv) return;
-  bv.addEventListener('touchstart', e => {
-    if (e.touches.length === 1) {
-      vSwipeStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
-    }
-  }, { passive: true });
-  bv.addEventListener('touchend', e => {
-    if (!vSwipeStart) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - vSwipeStart.x;
-    const dy = t.clientY - vSwipeStart.y;
-    const dt = Date.now() - vSwipeStart.t;
-    if (dt > 600) { vSwipeStart = null; return; }
-    const absX = Math.abs(dx), absY = Math.abs(dy);
-    if (absX > 80 && absX > absY * 1.8) {
-      const ribbons = document.querySelectorAll('.tab-ribbon');
-      let newIdx;
-      if (dx < 0) newIdx = Math.min(currentVintageTabIdx + 1, ribbons.length - 1);
-      else newIdx = Math.max(currentVintageTabIdx - 1, 0);
-      if (newIdx !== currentVintageTabIdx) {
-        const v = VTAB_ORDER[newIdx];
-        vintageSwitchView(v, ribbons[newIdx], { clientX: t.clientX, clientY: t.clientY });
-      }
-    }
-    // (ปิด gesture ปัดลง→กลับหน้าหลักแล้ว — ใช้ปุ่ม "กลับ" แทน กันหลุดออกโดยไม่ตั้งใจ)
-    vSwipeStart = null;
-  }, { passive: true });
+  // ไม่ผูก gesture ใดๆ
 }
 window.addEventListener('DOMContentLoaded', () => {
   setupVSwipe();
@@ -16157,7 +16139,7 @@ function renderList() {
       : `<span class="lc-type-badge">ขายส่ง</span>`;
     return `
       <div class="list-card${q.pendingReview?' pending-review':''}${(q.reviewed && !q.pendingReview)?' reviewed':''}" onclick="loadQuote('${q.id}')">
-        ${q.pendingReview ? '<div class="lc-corner-incoming">📩 แจ้งตรวจ</div><div class="pending-stamp">รอตรวจ</div>' : ''}
+        ${q.pendingReview ? `<div class="lc-corner-incoming">📩 แจ้งตรวจ</div><div class="pending-stamp"><span class="ps-t1">รอตรวจ</span>${(q.sentAt||q.updatedAt||q.date) ? `<span class="ps-div"></span><span class="ps-t2">${fmtSentStamp(q.sentAt || q.updatedAt || (q.date?Date.parse(q.date):0))}</span>` : ''}</div>` : ''}
         ${(q.reviewed && !q.pendingReview) ? '<div class="lc-reviewed-stamp">✓ ตรวจแล้ว</div>' : ''}
         <div class="lc-actions">
           <button class="lc-pencil" onclick="openCardMenu('${q.id}', event)" title="จัดการ" aria-label="จัดการ"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
@@ -17404,6 +17386,18 @@ function fmtDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
 }
+// วัน-เวลาที่ส่งบิลแจ้งตรวจ → "9 มิ.ย. 69 · 20:59"
+function fmtSentStamp(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const day = d.getDate();
+  const mon = d.toLocaleDateString('th-TH', { month: 'short' });
+  const yy = String((d.getFullYear() + 543) % 100).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${day} ${mon} ${yy} · ${hh}:${mm}`;
+}
 function fmtDateShort(iso) {
   // DD/MM/YY (พ.ศ. 2 หลัก)
   if (!iso) return '—';
@@ -18641,6 +18635,13 @@ function closeGardenFull() {
     gv.style.display = 'none';
   }
   currentDetailId = null;
+  // คืน garden-view ให้อยู่สถานะหน้ารายการ (กัน detail-view ค้างโชว์ตอนเข้าสมุดสวนทีหลัง)
+  const dv = document.getElementById('detail-view');
+  const lv = document.getElementById('list-view');
+  if (dv) { dv.style.display = 'none'; const ro = dv.querySelector('.gv-ro-banner'); if (ro) ro.remove(); }
+  if (lv) lv.style.display = '';
+  const bn = document.getElementById('gv-bottom-nav');
+  if (bn) bn.style.display = 'none';
   const tb = document.getElementById('topbar'); if (tb) tb.style.display = '';  // คืน topbar สมุดบิล
   // กลับไปสมุดบิล (อยู่หน้าเดิมที่เปิดไว้)
   const bv = document.getElementById('book-view');
@@ -20084,6 +20085,7 @@ function openSendToQuote() {
     fromBills: dates,
     isMergedBill: isMerged,
     pendingReview: true,
+    sentAt: Date.now(),
     note: noteText,
     updatedAt: Date.now(),
   };
@@ -21989,6 +21991,23 @@ function closeModalIfOuter(e) {
 // ════════════════════════════════════════════
 let _gbInited = false;
 function _initGardenBookInternal() {
+  // เข้าสมุดสวน = เริ่มที่หน้ารายการเสมอ · ล้างสถานะ detail/read-only ที่อาจค้างจากการดูการ์ดสวนจากบิล
+  _roFromBook = false;
+  const _gv = document.getElementById('garden-view');
+  if (_gv) _gv.classList.remove('gv-readonly');
+  currentDetailId = null;
+  const _lv = document.getElementById('list-view');
+  const _dv = document.getElementById('detail-view');
+  if (_lv) _lv.style.display = '';
+  if (_dv) _dv.style.display = 'none';
+  const _bb = document.getElementById('back-btn');
+  if (_bb) _bb.style.display = 'none';
+  const _bn = document.getElementById('gv-bottom-nav');
+  if (_bn) _bn.style.display = 'none';
+  const _fab = document.getElementById('fab');
+  if (_fab) { _fab.style.display = ''; _fab.classList.remove('lifted'); }
+  // ล้างแบนเนอร์ "ดูอย่างเดียว" ถ้าค้าง
+  if (_dv) { const _ro = _dv.querySelector('.gv-ro-banner'); if (_ro) _ro.remove(); }
   if (_gbInited) { renderListView(); return; }
   _gbInited = true;
   renderListView();
