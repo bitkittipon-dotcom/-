@@ -1826,6 +1826,21 @@ window.supaReady = false;
   border: 2px solid #2d1f10; box-shadow: 0 1px 3px rgba(0,0,0,0.45);
 }
 @keyframes lib-mail-in { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+/* ── ปุ่มซิงค์ลอย มุมขวาล่าง (หน้า Library) ── */
+.home-sync-fab {
+  position: fixed; z-index: 60;
+  right: 18px; bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  width: 52px; height: 52px; padding: 0; border-radius: 50%;
+  background: radial-gradient(circle at 38% 30%, #5a4222, #34250e 78%);
+  border: 1.5px solid rgba(232,201,122,0.55); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(232,201,122,0.3), inset 0 -2px 6px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.5);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.home-sync-fab:active { transform: scale(0.92); }
+.home-sync-fab svg { width: 26px; height: 26px; display: block; transition: transform 0.2s; }
+.home-sync-fab.spinning svg { animation: home-sync-spin 0.9s linear infinite; }
+@keyframes home-sync-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 /* ── ป็อปอัปแจ้งเตือน (บิลแจ้งตรวจ) · สลิปกระดาษ ── */
 .rv-backdrop {
   position: fixed; inset: 0; z-index: 400;
@@ -10752,6 +10767,9 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
       <div class="recent-h">ใช้ล่าสุด</div>
       <div id="recent-list"></div>
     </div>
+    <button class="home-sync-fab" id="home-sync-fab" onclick="homeSyncClick()" title="ซิงค์ข้อมูลจาก cloud" aria-label="ซิงค์ข้อมูล">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#e8c97a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+    </button>
   </div>
 
   <!-- ADMIN view -->
@@ -16914,6 +16932,20 @@ async function forceFullResync() {
   }
 }
 window.forceFullResync = forceFullResync;
+
+// ── ปุ่มซิงค์หน้า Library: หมุนระหว่างดึงข้อมูล ──
+async function homeSyncClick() {
+  const btn = document.getElementById('home-sync-fab');
+  if (btn) btn.classList.add('spinning');
+  try {
+    if (typeof forceFullResync === 'function') await forceFullResync();
+  } catch (e) {
+    console.error('[home sync]', e);
+  } finally {
+    if (btn) btn.classList.remove('spinning');
+  }
+}
+window.homeSyncClick = homeSyncClick;
 
 // ── Push: dirty gardens/notes/deletes ขึ้น cloud ──
 async function cloudPushDirty() {
