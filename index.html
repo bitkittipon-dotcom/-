@@ -5879,53 +5879,7 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
       0 2px 4px rgba(0,0,0,0.5);
     transform: rotate(-0.6deg) translateY(3px);
   }
-  /* ── ยกเลิกปิดสวน · สเลทอำพัน-ทอง · ช่องเดียวกับปิดสวน ── */
-  #garden-view .open-garden-btn.undo-close {
-    background:
-      radial-gradient(ellipse at 50% 22%, #b58a44 0%, #946c2f 30%, #6e4f22 60%, #4a3415 85%, #35250f 100%);
-    color: #fbe7a8;
-    border: 1.5px solid #1c1206;
-    padding: 14px 24px !important;
-    font-size: 14px !important;
-    letter-spacing: 1.4px !important;
-    margin: 6px auto 10px !important;
-    width: auto !important;
-    max-width: 280px;
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    box-shadow:
-      inset 0 1px 0 rgba(255,235,170,0.45),
-      inset 0 0 0 1.5px rgba(243,217,140,0.30),
-      inset 0 0 0 3px rgba(0,0,0,0.35),
-      inset 0 -6px 14px rgba(0,0,0,0.4),
-      0 4px 0 #241809,
-      0 6px 12px rgba(0,0,0,0.45);
-    text-shadow: 0 1px 1px rgba(0,0,0,0.55), 0 0 8px rgba(255,210,120,0.2);
-    animation: ogb-wobble 5s ease-in-out infinite;
-  }
-  #garden-view .open-garden-btn.undo-close .ogb-text > span {
-    font-size: 10px !important;
-    margin-top: 2px !important;
-    letter-spacing: 0.4px !important;
-    opacity: 0.85 !important;
-    color: rgba(251,231,168,0.9);
-  }
-  #garden-view .open-garden-btn.undo-close svg {
-    width: 22px !important;
-    height: 22px !important;
-    color: #fbe7a8;
-  }
-  #garden-view .open-garden-btn.undo-close:active {
-    box-shadow:
-      inset 0 0 0 1.5px rgba(243,217,140,0.25),
-      inset 0 0 0 3px rgba(0,0,0,0.4),
-      inset 2px 4px 8px rgba(0,0,0,0.55),
-      0 1px 0 #241809,
-      0 2px 4px rgba(0,0,0,0.5);
-    transform: rotate(-0.6deg) translateY(3px);
-  }
+  @keyframes cg-pulse {
     0%, 100% {
       box-shadow:
         inset 0 0 0 1px rgba(212,175,55,0.18),
@@ -16573,11 +16527,8 @@ function cloudStartSyncLoop() {
     clearInterval(_cloudSyncLoopHandle);
     _cloudSyncLoopHandle = null;
   }
-  // ดึงเต็ม 1 ครั้งตอนล็อกอิน/เปิดแอป — รีเซ็ตตัวชี้เวลาให้ครั้งแรกเป็น full pull
-  // (cloudSyncOnce จะ push ของค้างขึ้นก่อนเสมอ จึงไม่เสี่ยงข้อมูลหาย)
-  // หลังจากนั้นรอบ 30 วิจะเป็น incremental ตามปกติ
-  cloudSetLastSync('1970-01-01T00:00:00Z');
-  // sync แรกทันที (= full pull)
+  // sync แรกแบบ incremental (ไม่รีเซ็ตตัวชี้เป็น epoch — กันการอ่าน tombstone เก่าซ้ำ/ลบข้อมูลที่กู้คืน)
+  // ถ้าต้องการดึงครบทั้งหมด ใช้ปุ่ม "🔄 ดึงข้อมูลใหม่ทั้งหมด" ในตั้งค่า
   cloudScheduleSync(500);
   // วนทุก N วิ (incremental)
   _cloudSyncLoopHandle = setInterval(() => {
@@ -17102,46 +17053,6 @@ function confirmOpenGarden() {
   setTimeout(() => { renderDetail(); }, 800);
 }
 
-// ── ยกเลิกปิดสวน · ย้อนกลับสถานะก่อนปิด ──
-function undoCloseGardenConfirm() {
-  const g = gardens.find(x => x.id === currentDetailId);
-  if (!g) return;
-  const modalHtml = `
-    <div class="og-modal-backdrop" id="og-backdrop" onclick="if(event.target===this)closeOpenGardenModal()">
-      <div class="og-modal theme-close" onclick="event.stopPropagation()">
-        <div class="og-banner">
-          <div class="og-modal-h">🔓 ยกเลิกปิดสวน</div>
-        </div>
-        <div class="og-body">
-          <div class="og-msg">ย้อนสวน <span class="og-name">${gbEscapeHtml(g.name||'—')}</span><br>กลับไปสถานะก่อนปิด</div>
-          <div class="og-warn" style="background:rgba(120,90,40,.12);color:#7a531a;">ตราปิดสวนจะถูกลบ · บันทึกต่อได้ตามปกติ</div>
-          <div class="og-modal-actions" style="margin-top:14px;">
-            <button class="og-btn-cancel" onclick="closeOpenGardenModal()">ยกเลิก</button>
-            <button class="og-btn-confirm" onclick="confirmUndoCloseGarden()">✓ ย้อนกลับ</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-  const wrap = document.createElement('div');
-  wrap.innerHTML = modalHtml;
-  document.getElementById('garden-view').appendChild(wrap.firstElementChild);
-}
-function confirmUndoCloseGarden() {
-  const g = gardens.find(x => x.id === currentDetailId);
-  if (!g) { closeOpenGardenModal(); return; }
-  // ย้อนกลับสถานะก่อนปิด (ถ้าไม่มีบันทึกไว้ = สวนที่ปิดก่อนมีฟีเจอร์นี้ → ใช้ 'collecting')
-  g.status = (g.prevStatus && g.prevStatus !== 'done') ? g.prevStatus : 'collecting';
-  delete g.closedAt;
-  delete g.prevStatus;
-  saveGardens(gardens);
-  closeOpenGardenModal();
-  if (typeof toast === 'function') toast('ยกเลิกปิดสวนแล้ว ✓');
-  if (typeof haptic === 'function') haptic(20);
-  renderDetail();
-}
-window.undoCloseGardenConfirm = undoCloseGardenConfirm;
-window.confirmUndoCloseGarden = confirmUndoCloseGarden;
 function playSlamAnimation(text, color) {
   if (typeof window.playGardenOpen === 'function' && color === 'green') window.playGardenOpen();
   else if (typeof window.playGardenClose === 'function' && color === 'red') window.playGardenClose();
@@ -17212,7 +17123,6 @@ function closeGardenConfirm() {
 function confirmCloseGarden() {
   const g = gardens.find(x => x.id === currentDetailId);
   if (!g) { closeOpenGardenModal(); return; }
-  g.prevStatus = g.status || 'collecting';  // เก็บสถานะก่อนปิด เผื่อยกเลิก
   g.status = 'done';
   g.closedAt = todayISO();
   saveGardens(gardens);
@@ -19117,7 +19027,7 @@ function renderDetail() {
         </svg>`;
 
         if (isClosed) {
-          return `<button class="open-garden-btn undo-close" onclick="undoCloseGardenConfirm()"><svg class="ogb-icon" width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M11 16 V11.5 C11 8 13.2 6 16 6 C18.8 6 21 8 21.2 11" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><rect x="5" y="15" width="22" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="16" cy="20.5" r="2" fill="currentColor"/><line x1="16" y1="22.5" x2="16" y2="25.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="ogb-text">ยกเลิกปิดสวน<span style="display:block;font-size:11px;font-weight:500;margin-top:2px;opacity:0.85;letter-spacing:0.5px;">ย้อนกลับสถานะก่อนปิด</span></span></button>`;
+          return '';
         }
         if (g.status === 'collecting') {
           return `<button class="open-garden-btn close-garden" onclick="closeGardenConfirm()">${ICON_LOCK}<span class="ogb-text">ปิดสวน<span style="display:block;font-size:11px;font-weight:500;margin-top:2px;opacity:0.85;letter-spacing:0.5px;">เก็บเสร็จแล้ว · ปิดบันทึก</span></span></button>`;
