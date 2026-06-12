@@ -1472,11 +1472,12 @@ window.supaReady = false;
     z-index: 3;
   }
   .lc-pencil {
-    width: 26px; height: 26px; padding: 0;
+    width: 34px; height: 34px; padding: 0; margin: -4px -4px 0 0;
     background: transparent; border: 0; cursor: pointer;
-    color: #9a8458; border-radius: 7px;
+    color: #9a8458; border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
   .lc-pencil:active { background: rgba(107,68,35,0.14); color: #6b4423; }
   .empty-state {
@@ -1803,6 +1804,86 @@ window.supaReady = false;
   margin: 0 14px;
   font-size: 11px;
 }
+/* ── จดหมายแจ้งเตือนบิลแจ้งตรวจ (เห็นเฉพาะ admin) ── */
+.lib-mail-btn {
+  position: absolute; top: 12px; right: 14px; z-index: 5;
+  width: 40px; height: 40px; padding: 0;
+  background: radial-gradient(circle at 38% 28%, #5a4222, #34250e 75%);
+  border: 1px solid rgba(232,201,122,0.5); border-radius: 11px;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(232,201,122,0.28), inset 0 -2px 5px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.45);
+  -webkit-tap-highlight-color: transparent;
+  animation: lib-mail-in 0.3s ease;
+}
+.lib-mail-btn:active { transform: scale(0.93); }
+.lib-mail-btn svg { width: 23px; height: 23px; display: block; }
+.lib-mail-count {
+  position: absolute; top: -6px; right: -6px;
+  min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box;
+  border-radius: 10px; background: #c0392b; color: #fff;
+  font-size: 11px; font-weight: 800; line-height: 1; font-family: 'Sarabun', sans-serif;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #2d1f10; box-shadow: 0 1px 3px rgba(0,0,0,0.45);
+}
+@keyframes lib-mail-in { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+/* ── ป็อปอัปแจ้งเตือน (บิลแจ้งตรวจ) · สลิปกระดาษ ── */
+.rv-backdrop {
+  position: fixed; inset: 0; z-index: 400;
+  background: rgba(10,7,3,0.62);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: max(54px, env(safe-area-inset-top, 54px)) 16px 24px;
+  animation: rv-fade 0.2s ease;
+}
+@keyframes rv-fade { from { opacity: 0; } to { opacity: 1; } }
+.rv-modal {
+  width: 100%; max-width: 380px; border-radius: 16px; overflow: hidden;
+  background: #241a0e; border: 1px solid rgba(212,175,55,0.35);
+  box-shadow: 0 18px 44px rgba(0,0,0,0.65);
+  padding-bottom: 12px;
+  animation: rv-pop 0.28s cubic-bezier(.2,.9,.3,1.2);
+  max-height: calc(100vh - 90px); display: flex; flex-direction: column;
+}
+@keyframes rv-pop { from { opacity:0; transform: translateY(14px) scale(.96);} to {opacity:1; transform:none;} }
+.rv-head {
+  padding: 14px 14px 12px 16px; display: flex; align-items: center; gap: 9px;
+  border-bottom: 1px solid rgba(212,175,55,0.18); flex: 0 0 auto;
+}
+.rv-head svg { width: 21px; height: 21px; flex: 0 0 auto; }
+.rv-head .rv-t { font-weight: 800; font-size: 15px; color: #f3e6c4; }
+.rv-head .rv-c {
+  background: #c0392b; color: #fff; font-size: 12px; font-weight: 800;
+  min-width: 23px; height: 23px; padding: 0 7px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.rv-head .rv-x {
+  margin-left: auto; background: rgba(212,175,55,0.12); color: #d4af37;
+  border: 1px solid rgba(212,175,55,0.3); border-radius: 9px;
+  width: 30px; height: 30px; font-size: 14px; cursor: pointer; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+}
+.rv-head .rv-x:active { transform: scale(0.9); }
+.rv-body { padding: 12px; display: flex; flex-direction: column; gap: 11px; overflow: auto; flex: 1 1 auto; }
+.rv-empty { text-align: center; color: #8a7340; font-size: 13px; padding: 28px 0; }
+.rv-slip {
+  position: relative; background: linear-gradient(180deg,#faf3df,#f1e7cd); color: #3a2812;
+  border-radius: 11px; padding: 13px 14px; cursor: pointer;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.3); border: 1px solid #d8c290;
+  transition: transform 0.1s;
+}
+.rv-slip:active { transform: scale(0.985); }
+.rv-slip.is-new { box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 0 2px rgba(216,116,42,0.45); }
+.rv-stamp {
+  position: absolute; top: 11px; right: 12px;
+  background: linear-gradient(135deg,#e0813a,#b5531d); color: #fff3e0;
+  font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 5px;
+  letter-spacing: 0.04em; box-shadow: 0 1px 3px rgba(0,0,0,0.22);
+}
+.rv-gname { font-weight: 800; font-size: 15.5px; padding-right: 60px; }
+.rv-line { border-top: 1px solid #e2d2a8; margin: 9px 0; }
+.rv-grid { display: flex; flex-wrap: wrap; gap: 5px 18px; font-size: 12px; color: #7a5e2c; }
+.rv-grid .rv-k { color: #ad8a4c; }
+.rv-grid b { color: #3a2812; }
+.rv-foot { margin-top: 9px; font-size: 10.5px; color: #ad8a4c; display: flex; justify-content: space-between; gap: 8px; }
 .shelf-area { padding: 0 14px; position: relative; z-index: 2; }
 .books-scroll {
   overflow-x: auto;
@@ -10659,6 +10740,7 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
   <div id="home-view" style="display:none;">
     <div class="lib-wrap">
       <div class="dust"><span></span><span></span><span></span><span></span><span></span></div>
+      <button class="lib-mail-btn" id="lib-mail-btn" onclick="mailNotifClick()" style="display:none;" title="แจ้งเตือน" aria-label="แจ้งเตือน"><svg viewBox="0 0 24 24" fill="none" stroke="#e8c97a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span class="lib-mail-count" id="lib-mail-count">0</span></button>
       <div class="lib-section-h">Library</div>
       <div class="shelf-area">
         <div class="books-scroll">
@@ -11972,6 +12054,7 @@ function renderBooks() {
     `;
   }).join('');
   row.innerHTML = html + '<div class="empty-slot" onclick="toast(\'ยังไม่มีสมุดเพิ่มเติม\')">+</div>';
+  if (typeof updateMailNotif === 'function') updateMailNotif();
 }
 
 // ── Recent items per user (รองรับทั้ง quote + garden) ──
@@ -12157,7 +12240,6 @@ function openBook(id) {
   if (stage && book3d) {
     book3d.classList.remove('opening');
     stage.classList.add('show');
-    setTimeout(() => spawnSparkles(stage), 200);
     setTimeout(() => book3d.classList.add('opening'), 100);
     setTimeout(() => {
       stage.classList.remove('show');
@@ -15744,9 +15826,127 @@ function resetForm() {
   renderRows();
 }
 
+// ── จดหมายแจ้งเตือนบิลแจ้งตรวจ (เห็นเฉพาะ admin) · รับทราบรายตัวต่อเครื่อง ──
+const REVIEW_SEEN_KEY = 'thodsapon_review_seen';
+function reviewLoadSeen() {
+  try { return new Set(JSON.parse(localStorage.getItem(REVIEW_SEEN_KEY)) || []); }
+  catch(e) { return new Set(); }
+}
+function reviewSaveSeen(set) {
+  try { localStorage.setItem(REVIEW_SEEN_KEY, JSON.stringify([...set])); } catch(e) {}
+}
+function reviewMarkSeen(id) {
+  if (!id) return;
+  const s = reviewLoadSeen();
+  if (!s.has(id)) { s.add(id); reviewSaveSeen(s); }
+}
+function reviewUnseenCount() {
+  if (typeof state === 'undefined' || !state || !Array.isArray(state.quotes)) return 0;
+  const seen = reviewLoadSeen();
+  return state.quotes.filter(q => q && q.pendingReview && !seen.has(q.id)).length;
+}
+function updateMailNotif() {
+  const btn = document.getElementById('lib-mail-btn');
+  if (!btn) return;
+  const isAdmin = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'admin');
+  const cnt = isAdmin ? reviewUnseenCount() : 0;
+  if (isAdmin && cnt > 0) {
+    const c = document.getElementById('lib-mail-count');
+    if (c) c.textContent = cnt > 99 ? '99+' : String(cnt);
+    btn.style.display = '';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+function mailNotifClick() {
+  if (typeof haptic === 'function') haptic(10);
+  openReviewPopup();
+}
+// แปลงวันที่ array → ป้ายช่วงวันสั้น
+function _notifDateLabel(q) {
+  const fb = Array.isArray(q.fromBills) ? q.fromBills.slice().sort() : [];
+  if (!fb.length) return '';
+  const f = (typeof fmtDate === 'function') ? fmtDate : (x=>x);
+  return fb.length === 1 ? f(fb[0]) : `${f(fb[0])} – ${f(fb[fb.length-1])}`;
+}
+function openReviewPopup() {
+  // เก็บเฉพาะบิลแจ้งตรวจที่ "ยังไม่เปิด" (กดแล้วหายจากแจ้งเตือน) เรียงใหม่→เก่า
+  const seen = reviewLoadSeen();
+  const list = (state && Array.isArray(state.quotes) ? state.quotes : [])
+    .filter(q => q && q.pendingReview && !seen.has(q.id))
+    .sort((a,b) => (b.sentAt||b.updatedAt||0) - (a.sentAt||a.updatedAt||0));
+  const esc = (typeof escapeHtml === 'function') ? escapeHtml : (x=>x);
+
+  const slips = list.map(q => {
+    const baskets = (q.rows||[]).reduce((s,r)=>s+(Number(r.baskets)||0),0);
+    const src = q.isMergedBill ? `รวม ${(q.fromBills||[]).length} บิล` : 'ส่งจากสวน';
+    const dlabel = _notifDateLabel(q);
+    const when = (typeof fmtSentStamp === 'function') ? fmtSentStamp(q.sentAt || q.updatedAt || (q.date?Date.parse(q.date):0)) : '';
+    return `<div class="rv-slip" onclick="notifOpenBill('${q.id}')">
+      <span class="rv-stamp">รอตรวจ</span>
+      <div class="rv-gname">${esc(q.customer||'—')}</div>
+      <div class="rv-line"></div>
+      <div class="rv-grid">
+        <span><span class="rv-k">ผลไม้</span> <b>${esc(q.fruit||'—')}</b></span>
+        <span><span class="rv-k">ตะกร้า</span> <b>${baskets||0}</b></span>
+        ${q.isMergedBill ? `<span><span class="rv-k">รวม</span> <b>${(q.fromBills||[]).length} บิล</b></span>` : ''}
+      </div>
+      <div class="rv-foot"><span>${esc(src)}${dlabel?' · '+esc(dlabel):''}</span><span>${esc(when)}</span></div>
+    </div>`;
+  }).join('');
+
+  const body = list.length
+    ? slips
+    : `<div class="rv-empty">ไม่มีแจ้งเตือนใหม่</div>`;
+
+  const html = `
+    <div class="rv-backdrop" id="rv-backdrop" onclick="if(event.target===this)closeReviewPopup()">
+      <div class="rv-modal" role="dialog" aria-label="แจ้งเตือน">
+        <div class="rv-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#e8c97a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+          <span class="rv-t">แจ้งเตือน</span>
+          ${list.length?`<span class="rv-c">${list.length>99?'99+':list.length}</span>`:''}
+          <button class="rv-x" onclick="closeReviewPopup()" aria-label="ปิด">✕</button>
+        </div>
+        <div class="rv-body">${body}</div>
+      </div>
+    </div>`;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  document.body.appendChild(wrap.firstElementChild);
+}
+function closeReviewPopup() {
+  const bd = document.getElementById('rv-backdrop');
+  if (bd) bd.remove();
+}
+function notifOpenBill(id) {
+  if (typeof haptic === 'function') haptic(10);
+  closeReviewPopup();
+  reviewMarkSeen(id);                                  // → หายจากแจ้งเตือน + เลขลด
+  if (typeof updateMailNotif === 'function') updateMailNotif();
+  const bookView = document.getElementById('book-view');
+  const inBook = bookView && bookView.style.display !== 'none';
+  if (inBook) {
+    // อยู่ในบัญชีตีราคาแล้ว → เข้าบิลเลย
+    if (typeof loadQuote === 'function') loadQuote(id);
+  } else {
+    // เปิดสมุดก่อน แล้วเข้าบิลหลังอนิเมชันจบ (กัน showInterior สั่ง switchView('list') ทับ)
+    if (typeof openBook === 'function') openBook('quote');
+    const delay = (typeof settings !== 'undefined' && settings && settings.anim) ? 1200 : 90;
+    setTimeout(() => { if (typeof loadQuote === 'function') loadQuote(id); }, delay);
+  }
+}
+window.openReviewPopup = openReviewPopup;
+window.closeReviewPopup = closeReviewPopup;
+window.notifOpenBill = notifOpenBill;
+window.mailNotifClick = mailNotifClick;
+window.updateMailNotif = updateMailNotif;
+
 function loadQuote(id) {
   const q = state.quotes.find(x => x.id === id);
   if (!q) return;
+  // รับทราบบิลแจ้งตรวจรายตัว → ลดตัวนับซองจดหมาย
+  if (q.pendingReview) { reviewMarkSeen(id); if (typeof updateMailNotif === 'function') updateMailNotif(); }
   // mark recent for current user
   if (typeof pushRecent === 'function') pushRecent(id);
   resetForm();
@@ -16225,7 +16425,7 @@ function renderList() {
         ${q.pendingReview ? `<div class="lc-corner-incoming">📩 แจ้งตรวจ</div><div class="pending-stamp"><span class="ps-t1">รอตรวจ</span>${(q.sentAt||q.updatedAt||q.date) ? `<span class="ps-div"></span><span class="ps-t2">${fmtSentStamp(q.sentAt || q.updatedAt || (q.date?Date.parse(q.date):0))}</span>` : ''}</div>` : ''}
         ${(q.reviewed && !q.pendingReview) ? '<div class="lc-reviewed-stamp">✓ ตรวจแล้ว</div>' : ''}
         <div class="lc-actions">
-          <button class="lc-pencil" onclick="openCardMenu('${q.id}', event)" title="จัดการ" aria-label="จัดการ"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+          <button class="lc-pencil" data-qid="${q.id}" title="จัดการ" aria-label="จัดการ"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
         </div>
         <div class="list-card-top">
           <div><span class="lc-name">${escapeHtml(q.customer || '—')}</span><span class="lc-fruit">${escapeHtml(q.fruit||'')}</span></div>
@@ -16256,6 +16456,18 @@ function renderList() {
           ]
         });
       });
+      // ── ปุ่มดินสอ: ผูก handler แบบกัน touch ของการ์ดตีกัน (มือถือ) ──
+      const pen = card.querySelector('.lc-pencil');
+      if (pen) {
+        // กัน long-press/loadQuote ของการ์ดเริ่มทำงานตอนแตะดินสอ
+        pen.addEventListener('touchstart', (ev) => { ev.stopPropagation(); }, { passive: true });
+        pen.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); });
+        pen.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          if (ev.cancelable) ev.preventDefault();
+          openCardMenu(qid, ev);
+        });
+      }
     });
   }, 30);
 }
