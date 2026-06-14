@@ -4641,6 +4641,7 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
       position: absolute; bottom: 18px;
       transform: translateX(-50%);
       white-space: nowrap; font-weight: 800; font-size: 10.5px; padding: 2.5px 8px 3px;
+      display: inline-flex; align-items: center; gap: 4px;
       border-radius: 9px; line-height: 1.15; font-variant-numeric: tabular-nums;
       color: #fff; background: linear-gradient(135deg,#7ed957,#2f7d3f);
       border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 2px 4px rgba(0,0,0,0.28);
@@ -4652,8 +4653,13 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
       left: var(--tri, 50%); transform: translateX(-50%);
       border: 5px solid transparent; border-top-color: #2f7d3f; border-bottom: 0;
     }
-    #garden-view .lc-curlbl.over { background: linear-gradient(135deg,#34c759,#0a7a30); }
-    #garden-view .lc-curlbl.over::after { border-top-color: #0a7a30; }
+    #garden-view .lc-curlbl.over {
+      background: linear-gradient(135deg,#6af07a,#14cf5a);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.25), 0 2px 8px rgba(30,220,95,0.5);
+      text-shadow: 0 1px 1px rgba(0,80,30,0.3);
+    }
+    #garden-view .lc-curlbl.over::after { border-top-color: #14cf5a; }
+    #garden-view .lc-curlbl .lc-up { width: 11px; height: 11px; flex-shrink: 0; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.22)); }
     /* เป้า — ลอยปลายหลอด ไม่มีกรอบ + ขีดแดงที่ปลาย */
     #garden-view .lc-tgt-end {
       position: absolute; bottom: 18px; right: 0; transform: translateX(50%);
@@ -11572,15 +11578,16 @@ const NOTEBOOK_LABELS = {
   debt: '📘 ลูกหนี้',
   stock: '📙 สต็อก',
   report: '📕 รายงาน',
+  gardenDelete: '🗑️ ลบสวนได้',
 };
 const USERS_KEY = 'thodsapon_users';
 const SESSION_KEY = 'thodsapon_session';
 const DEFAULT_USERS = [
-  { id: 'hnuloveyou', pw: '101237', name: 'เลก', role: 'admin', perms: { quote: true, pos: true, garden: true, debt: true, stock: true, report: true } },
+  { id: 'hnuloveyou', pw: '101237', name: 'เลก', role: 'admin', perms: { quote: true, pos: true, garden: true, debt: true, stock: true, report: true, gardenDelete: true } },
 ];
 
 function loadUsers() {
-  const defaultPerms = { quote: true, pos: true, garden: true, debt: true, stock: true, report: true };
+  const defaultPerms = { quote: true, pos: true, garden: true, debt: true, stock: true, report: true, gardenDelete: false };
   try {
     const raw = localStorage.getItem(USERS_KEY);
     if (!raw) { saveUsers(DEFAULT_USERS); return DEFAULT_USERS.map(u => ({...u, perms: {...u.perms}})); }
@@ -12372,7 +12379,7 @@ function renderUsers() {
   wrap.innerHTML = users.map((u, idx) => {
     const isAdmin = u.role === 'admin';
     const isCurrent = u.id === currentUser.id;
-    const permList = ['quote','garden'].map(p => {
+    const permList = ['quote','garden','gardenDelete'].map(p => {
       const checked = u.perms[p] ? 'checked' : '';
       const dis = isAdmin ? 'disabled' : '';
       const disCls = isAdmin ? 'disabled' : '';
@@ -16753,6 +16760,27 @@ function cloudSaveDirty(d) {
   _cloudQueueCount = d.gardens.size + d.notes.size + d.quotes.size + d.deleted_gardens.size + d.deleted_notes.size + d.deleted_quotes.size;
 }
 
+// ── ชุด id ที่ "ลบถาวร" — กันคืนชีพข้ามเครื่อง/ข้ามรอบ sync ──
+const CLOUD_DELETED_KEY = 'thodsapon_cloud_deleted_ids';
+function cloudLoadDeleted() {
+  try {
+    const o = JSON.parse(localStorage.getItem(CLOUD_DELETED_KEY) || '{}');
+    return { gardens: new Set(o.gardens || []), notes: new Set(o.notes || []), quotes: new Set(o.quotes || []) };
+  } catch(e) { return { gardens: new Set(), notes: new Set(), quotes: new Set() }; }
+}
+let _cloudDeleted = cloudLoadDeleted();
+function cloudSaveDeleted() {
+  try {
+    localStorage.setItem(CLOUD_DELETED_KEY, JSON.stringify({
+      gardens: [..._cloudDeleted.gardens], notes: [..._cloudDeleted.notes], quotes: [..._cloudDeleted.quotes]
+    }));
+  } catch(e) {}
+}
+function cloudMarkDeletedId(kind, id) {
+  if (_cloudDeleted[kind]) { _cloudDeleted[kind].add(id); cloudSaveDeleted(); }
+}
+window.cloudMarkDeletedId = cloudMarkDeletedId;
+
 let _cloudDirty = cloudLoadDirty();
 _cloudQueueCount = _cloudDirty.gardens.size + _cloudDirty.notes.size + _cloudDirty.quotes.size + _cloudDirty.deleted_gardens.size + _cloudDirty.deleted_notes.size + _cloudDirty.deleted_quotes.size;
 
@@ -16781,12 +16809,13 @@ function cloudOnLocalChange(kind) {
     const cur = new Set(gardens.map(g => g.id));
     gardens.forEach(g => {
       g._localUpdatedAt = Date.now();
-      _cloudDirty.gardens.add(g.id);
+      if (!_cloudDeleted.gardens.has(g.id)) _cloudDirty.gardens.add(g.id);
     });
     [..._cloudPrevGardenIds].forEach(id => {
       if (!cur.has(id)) {
         _cloudDirty.deleted_gardens.add(id);
         _cloudDirty.gardens.delete(id);
+        cloudMarkDeletedId('gardens', id);
       }
     });
     _cloudPrevGardenIds = cur;
@@ -16794,12 +16823,13 @@ function cloudOnLocalChange(kind) {
     const cur = new Set(notes.map(n => n.id));
     notes.forEach(n => {
       n._localUpdatedAt = Date.now();
-      _cloudDirty.notes.add(n.id);
+      if (!_cloudDeleted.notes.has(n.id)) _cloudDirty.notes.add(n.id);
     });
     [..._cloudPrevNoteIds].forEach(id => {
       if (!cur.has(id)) {
         _cloudDirty.deleted_notes.add(id);
         _cloudDirty.notes.delete(id);
+        cloudMarkDeletedId('notes', id);
       }
     });
     _cloudPrevNoteIds = cur;
@@ -16808,12 +16838,13 @@ function cloudOnLocalChange(kind) {
     const cur = new Set(qs.map(q => q.id));
     qs.forEach(q => {
       q._localUpdatedAt = Date.now();
-      _cloudDirty.quotes.add(q.id);
+      if (!_cloudDeleted.quotes.has(q.id)) _cloudDirty.quotes.add(q.id);
     });
     [..._cloudPrevQuoteIds].forEach(id => {
       if (!cur.has(id)) {
         _cloudDirty.deleted_quotes.add(id);
         _cloudDirty.quotes.delete(id);
+        cloudMarkDeletedId('quotes', id);
       }
     });
     _cloudPrevQuoteIds = cur;
@@ -16957,6 +16988,7 @@ async function cloudPushDirty() {
   if (gardenIds.length > 0) {
     const rows = [];
     for (const id of gardenIds) {
+      if (_cloudDeleted.gardens.has(id)) { _cloudDirty.gardens.delete(id); continue; }
       const g = gardens.find(x => x.id === id);
       if (!g) continue;
       // strip transient field _localUpdatedAt
@@ -16965,6 +16997,7 @@ async function cloudPushDirty() {
         id: g.id,
         data: clean,
         updated_by: userId,
+        updated_at: new Date().toISOString(),
         deleted: false,
       });
     }
@@ -16980,6 +17013,7 @@ async function cloudPushDirty() {
   if (noteIds.length > 0) {
     const rows = [];
     for (const id of noteIds) {
+      if (_cloudDeleted.notes.has(id)) { _cloudDirty.notes.delete(id); continue; }
       const n = notes.find(x => x.id === id);
       if (!n) continue;
       const { _localUpdatedAt, ...clean } = n;
@@ -16987,6 +17021,7 @@ async function cloudPushDirty() {
         id: n.id,
         data: clean,
         updated_by: userId,
+        updated_at: new Date().toISOString(),
         deleted: false,
       });
     }
@@ -17003,6 +17038,7 @@ async function cloudPushDirty() {
     const rows = [];
     const localQuotes = (state && Array.isArray(state.quotes)) ? state.quotes : [];
     for (const id of quoteIds) {
+      if (_cloudDeleted.quotes.has(id)) { _cloudDirty.quotes.delete(id); continue; }
       const q = localQuotes.find(x => x.id === id);
       if (!q) continue;
       const { _localUpdatedAt, ...clean } = q;
@@ -17010,6 +17046,7 @@ async function cloudPushDirty() {
         id: q.id,
         data: clean,
         updated_by: userId,
+        updated_at: new Date().toISOString(),
         deleted: false,
       });
     }
@@ -17028,7 +17065,7 @@ async function cloudPushDirty() {
   const delGardens = [..._cloudDirty.deleted_gardens];
   if (delGardens.length > 0) {
     const { error } = await window.supaClient.from('gardens')
-      .update({ deleted: true, deleted_at: new Date().toISOString(), updated_by: userId })
+      .update({ deleted: true, deleted_at: new Date().toISOString(), updated_at: new Date().toISOString(), updated_by: userId })
       .in('id', delGardens);
     if (error) throw new Error('delete gardens: ' + error.message);
     delGardens.forEach(id => _cloudDirty.deleted_gardens.delete(id));
@@ -17036,7 +17073,7 @@ async function cloudPushDirty() {
   const delNotes = [..._cloudDirty.deleted_notes];
   if (delNotes.length > 0) {
     const { error } = await window.supaClient.from('notes')
-      .update({ deleted: true, deleted_at: new Date().toISOString(), updated_by: userId })
+      .update({ deleted: true, deleted_at: new Date().toISOString(), updated_at: new Date().toISOString(), updated_by: userId })
       .in('id', delNotes);
     if (error) throw new Error('delete notes: ' + error.message);
     delNotes.forEach(id => _cloudDirty.deleted_notes.delete(id));
@@ -17044,7 +17081,7 @@ async function cloudPushDirty() {
   const delQuotes = [..._cloudDirty.deleted_quotes];
   if (delQuotes.length > 0) {
     const { error } = await window.supaClient.from('quotes')
-      .update({ deleted: true, deleted_at: new Date().toISOString(), updated_by: userId })
+      .update({ deleted: true, deleted_at: new Date().toISOString(), updated_at: new Date().toISOString(), updated_by: userId })
       .in('id', delQuotes);
     if (error) throw new Error('delete quotes: ' + error.message);
     delQuotes.forEach(id => _cloudDirty.deleted_quotes.delete(id));
@@ -17074,16 +17111,25 @@ async function cloudPullUpdates() {
     const local = gardens.find(x => x.id === row.id);
     const localUpdated = local && local._localUpdatedAt ? local._localUpdatedAt : 0;
     const serverUpdated = new Date(row.updated_at).getTime();
-    if (localUpdated > serverUpdated && _cloudDirty.gardens.has(row.id)) {
-      // local ใหม่กว่าและยัง dirty → ไม่ทับ ปล่อยให้ push รอบถัดไป
+    if (!row.deleted && localUpdated > serverUpdated && _cloudDirty.gardens.has(row.id)) {
+      // local ใหม่กว่าและยัง dirty → ไม่ทับ ปล่อยให้ push รอบถัดไป (แต่การลบยังชนะเสมอ)
       return;
     }
     if (row.deleted) {
+      _cloudDeleted.gardens.add(row.id); cloudSaveDeleted();
+      _cloudDirty.gardens.delete(row.id);
       const idx = gardens.findIndex(x => x.id === row.id);
       if (idx >= 0) {
         gardens.splice(idx, 1);
         gardensChanged = true;
       }
+    } else if (_cloudDeleted.gardens.has(row.id)) {
+      // เคยลบถาวรแล้ว แต่ cloud กลับมา deleted:false (มีเครื่องอื่น push คืนชีพ)
+      // → ไม่เพิ่มกลับ + ส่ง tombstone ซ้ำเพื่อ heal cloud
+      _cloudDirty.deleted_gardens.add(row.id);
+      _cloudDirty.gardens.delete(row.id);
+      const idx = gardens.findIndex(x => x.id === row.id);
+      if (idx >= 0) { gardens.splice(idx, 1); gardensChanged = true; }
     } else {
       const idx = gardens.findIndex(x => x.id === row.id);
       const incoming = { ...(row.data || {}), id: row.id };
@@ -17110,9 +17156,16 @@ async function cloudPullUpdates() {
     const local = notes.find(x => x.id === row.id);
     const localUpdated = local && local._localUpdatedAt ? local._localUpdatedAt : 0;
     const serverUpdated = new Date(row.updated_at).getTime();
-    if (localUpdated > serverUpdated && _cloudDirty.notes.has(row.id)) return;
+    if (!row.deleted && localUpdated > serverUpdated && _cloudDirty.notes.has(row.id)) return;
 
     if (row.deleted) {
+      _cloudDeleted.notes.add(row.id); cloudSaveDeleted();
+      _cloudDirty.notes.delete(row.id);
+      const idx = notes.findIndex(x => x.id === row.id);
+      if (idx >= 0) { notes.splice(idx, 1); notesChanged = true; }
+    } else if (_cloudDeleted.notes.has(row.id)) {
+      _cloudDirty.deleted_notes.add(row.id);
+      _cloudDirty.notes.delete(row.id);
       const idx = notes.findIndex(x => x.id === row.id);
       if (idx >= 0) { notes.splice(idx, 1); notesChanged = true; }
     } else {
@@ -17139,9 +17192,16 @@ async function cloudPullUpdates() {
       const local = state.quotes.find(x => x.id === row.id);
       const localUpdated = local && local._localUpdatedAt ? local._localUpdatedAt : 0;
       const serverUpdated = new Date(row.updated_at).getTime();
-      if (localUpdated > serverUpdated && _cloudDirty.quotes.has(row.id)) return;
+      if (!row.deleted && localUpdated > serverUpdated && _cloudDirty.quotes.has(row.id)) return;
 
       if (row.deleted) {
+        _cloudDeleted.quotes.add(row.id); cloudSaveDeleted();
+        _cloudDirty.quotes.delete(row.id);
+        const idx = state.quotes.findIndex(x => x.id === row.id);
+        if (idx >= 0) { state.quotes.splice(idx, 1); quotesChanged = true; }
+      } else if (_cloudDeleted.quotes.has(row.id)) {
+        _cloudDirty.deleted_quotes.add(row.id);
+        _cloudDirty.quotes.delete(row.id);
         const idx = state.quotes.findIndex(x => x.id === row.id);
         if (idx >= 0) { state.quotes.splice(idx, 1); quotesChanged = true; }
       } else {
@@ -18683,7 +18743,8 @@ function renderListView() {
       else if (rawPct >= 90) pctColor = '#2c4a08';
       else if (rawPct >= 60) pctColor = '#4a6928';
       else if (rawPct >= 30) pctColor = '#854f0b';
-      const curLbl = fmtNum(totKg) + (isExceeded ? ' ⬆' : '');
+      const upSvg = '<svg class="lc-up" viewBox="0 0 24 24"><path d="M12 4l8 9H4z" fill="#ff2d2d"/></svg>';
+      const curLbl = isExceeded ? `<span>${fmtNum(totKg)}</span>${upSvg}` : fmtNum(totKg);
       const tgtLbl = '🎯 ' + fmtNum(tgtKg);
       // เป้า: ปกติอยู่ปลายหลอด (ไม่มีกรอบ + ขีดทอง) ; เลยเป้าอยู่ที่เส้นขีดแดง
       const tgtEls = isExceeded
@@ -18751,7 +18812,9 @@ function renderListView() {
         } else if (g.status === 'done' || g.closedAt) {
           items.push({ icon: '📦', label: 'ย้ายไปที่เก็บ', onClick: () => manualArchiveGarden(gid) });
         }
-        items.push({ icon: '🗑️', label: 'ลบสวน', danger: true, onClick: () => delGarden(gid) });
+        if (canDeleteGarden()) {
+          items.push({ icon: '🗑️', label: 'ลบสวน', danger: true, onClick: () => delGarden(gid) });
+        }
         showContextMenu({
           x: pos.x, y: pos.y,
           items
@@ -19411,7 +19474,7 @@ function renderDetail() {
       ${isClosed ? '' : `
         <div style="display:flex;gap:8px;margin-top:8px;">
           <button class="add-line-btn" onclick="openGardenForm('${g.id}')">✏️ แก้ไข</button>
-          <button class="add-line-btn" style="background:rgba(192,57,43,0.1);border-color:rgba(192,57,43,0.4);color:#8b1a1a;" onclick="delGarden('${g.id}')">🗑 ลบ</button>
+          ${canDeleteGarden() ? `<button class="add-line-btn" style="background:rgba(192,57,43,0.1);border-color:rgba(192,57,43,0.4);color:#8b1a1a;" onclick="delGarden('${g.id}')">🗑 ลบ</button>` : ''}
         </div>
       `}
     </div>
@@ -19717,7 +19780,7 @@ function openGardenForm(id) {
             </div>
             <label>มัดจำ</label>
             <div class="deposit-stack">
-              <input id="gf-deposit" type="text" inputmode="numeric" value="${gfMoneyStr(g.deposit)}" placeholder="20000" oninput="gfFmtMoney(this);updateRemaining()">
+              <input id="gf-deposit" type="text" inputmode="numeric" value="${isEdit ? gfMoneyStr(paidTotal(g)) : ''}" placeholder="20000" oninput="gfFmtMoney(this);updateRemaining()">
               <div class="date-line">
                 <span>วันที่:</span>
                 <input id="gf-deposit-date" type="date" value="${gbEscapeHtml(g.depositDate||todayISO())}">
@@ -20049,6 +20112,9 @@ function saveGarden() {
     deposit,
     depositDate,
     remainingDate: '',
+    // มัดจำในฟอร์ม = ยอดจ่ายจริงทั้งหมด → รวบเป็นตัวเดียว เคลียร์ payments[]
+    // (กันการนับซ้ำกับยอดจ่ายเพิ่มเดิม และให้แก้ตัวเลขผิดได้ทุกกรณี)
+    payments: [],
     pricePerBasket: dealType === 'kg-all' ? (Number(document.getElementById('gf-kg-price').value) || 0) : (g?.pricePerBasket || 0),
   };
 
@@ -20076,7 +20142,20 @@ function saveGarden() {
   else renderListView();
 }
 
+// ── สิทธิ์ลบสวน: admin เสมอ · คนอื่นต้องได้รับสิทธิ์ gardenDelete ──
+function canDeleteGarden() {
+  if (typeof currentUser === 'undefined' || !currentUser) return false;
+  if (currentUser.role === 'admin') return true;
+  return !!(currentUser.perms && currentUser.perms.gardenDelete);
+}
+window.canDeleteGarden = canDeleteGarden;
+
 async function delGarden(id) {
+  // ── เช็คสิทธิ์ลบสวน (admin หรือผู้ที่ได้รับสิทธิ์ gardenDelete เท่านั้น) ──
+  if (!canDeleteGarden()) {
+    toast('คุณไม่มีสิทธิ์ลบสวน — ติดต่อผู้ดูแล (admin)');
+    return;
+  }
   const g = gardens.find(x => x.id === id);
   const name = g && g.name ? g.name : 'สวนนี้';
   const fruit = g && g.fruit ? g.fruit : '';
