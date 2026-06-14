@@ -27,30 +27,130 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 // ════════════════════════════════════════════
-//  ตัวดักจับ ERROR แบบมองเห็นได้ (ช่วยหาเหตุปุ่มตาย/หน้าว่าง)
+//  ระบบบันทึกข้อผิดพลาด (errlog) — ตัวดักจับเงียบ + เวอร์ชัน + breadcrumbs
+//  เก็บเงียบ ไม่มี UI เด้ง · admin เปิดดูในหน้าจัดการผู้ใช้
 // ════════════════════════════════════════════
+window.__APP_BUILD = 1004;                       // ← เลขบิลด์ (ผมบวกทุกครั้งที่ส่งไฟล์ใหม่ = ใช้ตัดสิน "แก้แล้ว")
+window.__APP_VERSION = 'อัปเดต 14 มิ.ย. 69 (4)';   // ← ข้อความเวอร์ชันโชว์ในแอป
 (function () {
-  let shown = 0;
-  function showErr(msg, src, line) {
-    if (shown >= 3) return;  // โชว์สูงสุด 3 อัน กันรก
-    shown++;
+  // ── breadcrumbs: จำ 12 การกระทำล่าสุดก่อนเกิดบัค ──
+  window.__bcrumbs = [];
+  window.__bc = function (type, detail) {
     try {
-      const bar = document.createElement('div');
-      bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483647;background:#7a1a0d;color:#fff;font:12px/1.4 monospace;padding:8px 12px;white-space:pre-wrap;word-break:break-word;box-shadow:0 -2px 8px rgba(0,0,0,.4);max-height:40vh;overflow:auto;';
-      const where = src ? (' @ ' + String(src).split('/').pop() + (line ? ':' + line : '')) : '';
-      bar.textContent = '⚠ JS ERROR: ' + msg + where + '  (แตะเพื่อปิด)';
-      bar.onclick = () => bar.remove();
-      (document.body || document.documentElement).appendChild(bar);
+      window.__bcrumbs.push({ t: Date.now(), type: type, d: String(detail == null ? '' : detail).slice(0, 80) });
+      if (window.__bcrumbs.length > 12) window.__bcrumbs.shift();
+    } catch (e) {}
+  };
+  // เก็บคลิกปุ่ม/แท็บอัตโนมัติ
+  try {
+    document.addEventListener('click', function (e) {
+      try {
+        var el = e.target && e.target.closest ? e.target.closest('button,[onclick],.tab,.tab-ribbon,.deal-opt,.status-opt,.user-menu-item') : null;
+        if (el) window.__bc('คลิก', (el.textContent || el.id || el.className || '').trim().slice(0, 40));
+      } catch (_) {}
+    }, true);
+  } catch (e) {}
+
+  // ── กรองข้อมูลส่วนตัว (N) ──
+  function scrub(s) {
+    try {
+      return String(s == null ? '' : s)
+        .replace(/sb_publishable_[A-Za-z0-9_\-]+/g, '***key***')
+        .replace(/hnuloveyou|101237/g, '***')
+        .replace(/(pass(word)?|pwd|pw|token|secret)\s*[:=]\s*\S+/gi, '$1=***');
+    } catch (_) { return ''; }
+  }
+  // hash → signature สำหรับรวมซ้ำ
+  function sigOf(s) {
+    var h = 5381, i = s.length;
+    while (i) h = (h * 33) ^ s.charCodeAt(--i);
+    return (h >>> 0).toString(36);
+  }
+  window.__errlogScrub = scrub;
+  window.__errlogSig = sigOf;
+
+  var _recent = {}; // sig → lastTime (rate-limit J)
+
+  // ── เก็บ 1 รายการลงคิว localStorage (รวมซ้ำในคิว) ──
+  function capture(group, kind, msg, src, line, stack, extraSig) {
+    try {
+      if (localStorage.getItem('thodsapon_errlog_on') === '0') return;
+      msg = scrub(msg);
+      src = src ? String(src).split(/[\\/]/).pop() : '';
+      var sig = extraSig || sigOf(group + '|' + kind + '|' + msg + '|' + src + '|' + (line || 0));
+      var now = Date.now();
+      if (_recent[sig] && now - _recent[sig] < 3000) return; // กันลูปเด้งรัว
+      _recent[sig] = now;
+      var entry = {
+        sig: sig, group: group, kind: kind, msg: msg, src: src, line: line || 0,
+        stack: stack ? scrub(String(stack)).slice(0, 600) : '',
+        crumbs: (window.__bcrumbs || []).slice(-10),
+        ts: new Date().toISOString(), build: window.__APP_BUILD,
+        view: (function () { try { var v = document.querySelector('#book-view:not([style*="none"]),#garden-view:not([style*="none"]),#admin-view:not([style*="none"]),#home-view:not([style*="none"])'); return v ? v.id.replace('-view', '') : ''; } catch (_) { return ''; } })()
+      };
+      var q;
+      try { q = JSON.parse(localStorage.getItem('thodsapon_errlog_queue') || '[]'); } catch (_) { q = []; }
+      var ex = q.find(function (x) { return x.sig === sig; });
+      if (ex) { ex.n = (ex.n || 1) + 1; ex.ts = entry.ts; ex.crumbs = entry.crumbs; ex.view = entry.view; ex.build = entry.build; }
+      else { entry.n = 1; q.push(entry); }
+      if (q.length > 300) q = q.slice(-300);
+      localStorage.setItem('thodsapon_errlog_queue', JSON.stringify(q));
+      if (window.__errlogFlush) window.__errlogFlush();
     } catch (e) {}
   }
-  window.addEventListener('error', e => {
-    showErr(e.message || 'unknown', e.filename, e.lineno);
+  window.__errlogCapture = capture;
+
+  window.addEventListener('error', function (e) {
+    capture('error', (e.error && e.error.name) || 'Error', e.message || 'unknown', e.filename, e.lineno, e.error && e.error.stack);
   });
-  window.addEventListener('unhandledrejection', e => {
-    const r = e.reason;
-    showErr('(promise) ' + (r && r.message ? r.message : String(r)), '', '');
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e.reason;
+    capture('error', 'Promise', (r && r.message) ? r.message : String(r), '', 0, r && r.stack);
   });
 })();
+</script>
+<script>
+// ── ตัวช่วยใส่ comma ในช่องตัวเลข (global · ใช้ได้ทุก scope และ inline handler) ──
+window.numCv = function (idOrEl) {
+  var el = (typeof idOrEl === 'string') ? document.getElementById(idOrEl) : idOrEl;
+  if (!el) return 0;
+  return Number(String(el.value).replace(/[^0-9.\-]/g, '')) || 0;
+};
+window.numStr = function (n) {
+  if (n == null || n === '') return '';
+  var x = Number(String(n).replace(/,/g, ''));
+  if (isNaN(x)) return '';
+  return x.toLocaleString('en-US');
+};
+window.numComma = function (el) {
+  if (!el) return;
+  var old = el.value;
+  var caret = el.selectionStart;
+  var beforeDigits = old.slice(0, caret).replace(/[^0-9.]/g, '').length;
+  var raw = old.replace(/[^0-9.]/g, '');
+  var dotAt = raw.indexOf('.');
+  var intPart, decPart = null;
+  if (dotAt >= 0) { intPart = raw.slice(0, dotAt); decPart = raw.slice(dotAt + 1).replace(/\./g, '').slice(0, 2); }
+  else { intPart = raw; }
+  if (intPart === '' && decPart == null) { el.value = ''; return; }
+  var intNum = (intPart === '') ? '' : Number(intPart).toLocaleString('en-US');
+  var formatted = intNum;
+  if (decPart != null) formatted += '.' + decPart;
+  else if (old.replace(/[^0-9.]/g, '').endsWith('.')) formatted += '.';
+  el.value = formatted;
+  var seen = 0, pos = 0;
+  while (pos < formatted.length && seen < beforeDigits) { if (/[0-9.]/.test(formatted[pos])) seen++; pos++; }
+  try { el.setSelectionRange(pos, pos); } catch (e) {}
+};
+// ฟอร์แมตอัตโนมัติทุกช่องที่มี data-comma (capture phase: รันก่อน oninput ของช่องนั้น)
+try {
+  document.addEventListener('input', function (e) {
+    var el = e.target;
+    if (el && el.tagName === 'INPUT' && el.getAttribute && el.getAttribute('data-comma') === '1') {
+      try { window.numComma(el); } catch (err) {}
+    }
+  }, true);
+} catch (e) {}
 </script>
 <script>
 window.SUPA_CONFIG = {
@@ -4596,6 +4696,22 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     #garden-view .lc-daycard .m { font-size: 8px; color: #9a8a63; font-weight: 600; margin-top: 1px; }
     #garden-view .lc-daycard.last { border-color: #4a6928; background: #f1f7e8; }
     #garden-view .lc-daycard.last .d { color: #4a6928; }
+    /* ── กดชิปวัน → ขยายทุกใบ แถวเดียวเลื่อนแนวนอน (ตอนย่อ = ขนาดเดิม) ── */
+    #garden-view .lc-daycard { cursor: pointer; transition: min-width .3s cubic-bezier(.22,.61,.36,1), background .25s, border-color .25s, box-shadow .25s; }
+    #garden-view .lc-daycard:active { transform: scale(.96); }
+    #garden-view .lc-daycard .lc-body { max-height: 0; opacity: 0; overflow: hidden; width: 100%; transition: max-height .3s ease, opacity .2s ease, margin .3s ease; }
+    #garden-view .lc-daycard .lc-sep { height: 1px; background: rgba(74,105,40,.25); margin: 3px 0 4px; }
+    #garden-view .lc-daycard .lc-gr { display: flex; justify-content: space-between; gap: 6px; font-size: 9.5px; color: #5a3818; padding: 0 1px; line-height: 1.45; }
+    #garden-view .lc-daycard .lc-gr .g { font-weight: 800; color: #4a6928; }
+    #garden-view .lc-daycard .lc-gr .n { font-family: 'JetBrains Mono', monospace; font-weight: 700; white-space: nowrap; }
+    #garden-view .lc-daycard .lc-tot { display: flex; justify-content: center; gap: 5px; margin-top: 3px; font-size: 9.5px; font-weight: 800; color: #2f5d1f; background: rgba(74,105,40,.1); border-radius: 5px; padding: 2px 4px; white-space: nowrap; }
+    #garden-view .lc-daycard .lc-tot .v { font-family: 'JetBrains Mono', monospace; }
+    #garden-view .lc-daywrap.open { flex-wrap: nowrap; align-items: flex-start; overflow-x: auto; overflow-y: hidden; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
+    #garden-view .lc-daywrap.open::-webkit-scrollbar { height: 5px; }
+    #garden-view .lc-daywrap.open::-webkit-scrollbar-thumb { background: rgba(74,105,40,.4); border-radius: 3px; }
+    #garden-view .lc-daywrap.open .lc-daycard { min-width: 104px; border-color: #4a6928; background: #f4faec; box-shadow: 0 2px 6px rgba(74,105,40,.22); }
+    #garden-view .lc-daywrap.open .lc-daycard.last { background: #eef7e0; }
+    #garden-view .lc-daywrap.open .lc-daycard .lc-body { max-height: 160px; opacity: 1; margin-top: 4px; }
 
     #garden-view .lc-bar-row {
       display: flex;
@@ -10207,7 +10323,7 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     flex-direction: column;
     gap: 4px;
   }
-    #garden-view .deposit-stack input[type="number"] {
+    #garden-view .deposit-stack input[type="text" data-comma="1"] {
     width: 100%;
     box-sizing: border-box;
     background: rgba(255,255,255,0.7);
@@ -10691,6 +10807,47 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
   }
 
 </style>
+<style>
+/* ── ระบบบันทึกข้อผิดพลาด (errlog) ── */
+.menu-admin-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:8px;border-radius:9px;background:#e02424;color:#fff;font-size:11px;font-weight:800;vertical-align:middle;box-shadow:0 1px 3px rgba(224,36,36,0.5);}
+.errlog-card{margin-top:22px;background:#fbf4e2;border:1px solid rgba(90,56,24,0.22);border-radius:14px;padding:14px 13px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.08);text-align:left;}
+.errlog-h{display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:800;color:#7a4a16;margin-bottom:10px;}
+.errlog-ver{font-size:10.5px;font-weight:600;color:#a08a63;background:rgba(160,138,99,0.14);padding:2px 8px;border-radius:8px;}
+.errlog-tools{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;align-items:center;}
+.errlog-btn{border:1px solid rgba(90,56,24,0.3);background:#fff;color:#5a3818;font-size:12px;font-weight:700;padding:6px 11px;border-radius:9px;cursor:pointer;}
+.errlog-btn:active{transform:scale(0.96);}
+.errlog-sw{font-size:12px;color:#6b563a;display:inline-flex;align-items:center;gap:5px;margin-left:auto;cursor:pointer;}
+.elx-tabs{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
+.elx-tab{flex:1;min-width:90px;border:1px solid rgba(90,56,24,0.25);background:#fff;color:#6b563a;font-size:12px;font-weight:700;padding:7px 6px;border-radius:9px;cursor:pointer;}
+.elx-tab.on{background:#6b8e3d;color:#fff;border-color:#5c7d33;}
+.elx-chips{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;}
+.elx-chip{border:1px solid rgba(90,56,24,0.22);background:#fff;color:#7a6647;font-size:11px;font-weight:600;padding:4px 9px;border-radius:20px;cursor:pointer;}
+.elx-chip.on{background:#3a2812;color:#e8c97a;border-color:#3a2812;}
+.elx-search{width:100%;box-sizing:border-box;border:1px solid rgba(90,56,24,0.25);background:#fff;border-radius:9px;padding:8px 11px;font-size:13px;margin-bottom:10px;font-family:inherit;}
+.elx-card{background:#fff;border:1px solid rgba(90,56,24,0.16);border-left:4px solid #bbb;border-radius:10px;padding:10px 11px;margin-bottom:9px;}
+.elx-card.on{border-left-color:#e02424;}
+.elx-card.off{border-left-color:#3aa655;opacity:0.82;}
+.elx-row1{display:flex;align-items:center;gap:7px;margin-bottom:4px;}
+.elx-dot{font-size:11px;}
+.elx-grp{font-size:11.5px;font-weight:700;color:#7a6647;}
+.elx-cnt{margin-left:auto;font-size:11px;font-weight:800;color:#b5531d;background:rgba(181,83,29,0.1);padding:1px 7px;border-radius:8px;}
+.elx-msg{font-size:13.5px;font-weight:700;color:#2a1810;line-height:1.4;word-break:break-word;margin-bottom:4px;}
+.elx-meta{font-size:11px;color:#8a7350;line-height:1.5;word-break:break-word;}
+.elx-det{margin-top:6px;font-size:11px;}
+.elx-det summary{cursor:pointer;color:#6b8e3d;font-weight:700;}
+.elx-pre{margin-top:5px;background:#f4ecd6;border-radius:7px;padding:7px 9px;font-family:monospace;font-size:10.5px;color:#5a3818;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow:auto;}
+</style>
+<style>
+/* ── แก้ช่องกรอกแคบบนมือถือ (มัดจำ/ราคาเหมา/น้ำหนักคาด) ── */
+@media (max-width: 480px) {
+  #garden-view .d-grid { grid-template-columns: 64px minmax(0,1fr); gap: 5px 8px; }
+  #garden-view .d-grid > label { font-size: 11px; }
+  /* ย้ายป้ายเล็กไปไว้บนช่อง → ช่องกรอกกว้างเกือบเต็ม */
+  #garden-view .combo-input { flex-wrap: wrap; padding: 5px 9px 6px; }
+  #garden-view .combo-mini-lbl { flex-basis: 100%; min-width: 0; border-right: 0; padding-right: 0; margin-bottom: 1px; font-size: 9.5px; opacity: 0.85; }
+  #garden-view .combo-input input { font-size: 15px; }
+}
+</style>
 </head>
 <body>
 
@@ -10748,7 +10905,11 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     </div>
     <div class="user-menu" id="user-menu" onclick="event.stopPropagation()">
       <div class="user-menu-item" id="menu-admin" onclick="goAdmin()">
-        ⚜ จัดการผู้ใช้
+        ⚜ จัดการผู้ใช้<span class="menu-admin-badge" id="menu-admin-badge" style="display:none;">0</span>
+      </div>
+      <div class="user-menu-divider"></div>
+      <div class="user-menu-item" onclick="errlogReport()">
+        🐞 แจ้งปัญหา/บัค
       </div>
       <div class="user-menu-divider"></div>
       <div class="user-menu-item danger" onclick="logout()">
@@ -10783,6 +10944,21 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     <div class="admin-h">จัดการผู้ใช้</div>
     <div id="users-list"></div>
     <button class="admin-add" onclick="addUser()">+ เพิ่มผู้ใช้ใหม่</button>
+
+    <!-- ─── บันทึกข้อผิดพลาด (errlog) — admin เท่านั้น ─── -->
+    <div class="errlog-card">
+      <div class="errlog-h">
+        <span>🐞 บันทึกข้อผิดพลาด</span>
+        <span class="errlog-ver" id="errlog-ver"></span>
+      </div>
+      <div class="errlog-tools">
+        <button class="errlog-btn" onclick="errlogOpen()">🔄 รีเฟรช</button>
+        <button class="errlog-btn" onclick="errlogCopyForClaude()">📋 คัดลอกให้ Claude</button>
+        <button class="errlog-btn" onclick="errlogTest()">🧪 ทดสอบระบบ</button>
+        <label class="errlog-sw"><input type="checkbox" id="errlog-on-chk" onchange="errlogToggleEnabled(this.checked)"> เก็บบัค</label>
+      </div>
+      <div id="errlog-body"><div style="text-align:center;padding:20px;color:#8a7350;font-size:13px;">กด 🔄 รีเฟรช เพื่อโหลดรายการ</div></div>
+    </div>
     <div style="margin-top: 24px; font-size: 11px; color: rgba(212,175,55,0.4); text-align: center;">
       💡 ประวัติการเข้าใช้: ดู console (F12)
     </div>
@@ -10920,19 +11096,19 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
       <div class="expenses">
         <div class="exp-row">
           <span class="exp-label">ค่าอบ</span>
-          <input class="exp-input" type="number" inputmode="decimal" id="f-roast" placeholder="—">
+          <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-roast" placeholder="—">
         </div>
         <div class="exp-row">
           <span class="exp-label">ค่ารถ</span>
-          <input class="exp-input" type="number" inputmode="decimal" id="f-transport" placeholder="—">
+          <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-transport" placeholder="—">
         </div>
         <div class="exp-row">
           <span class="exp-label">ค่าจัดทำ</span>
-          <input class="exp-input" type="number" inputmode="decimal" id="f-process" placeholder="—">
+          <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-process" placeholder="—">
         </div>
         <div class="exp-row">
           <span class="exp-label">หักไว้</span>
-          <input class="exp-input" type="number" inputmode="decimal" id="f-deduct" placeholder="—">
+          <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-deduct" placeholder="—">
         </div>
       </div>
 
@@ -11017,7 +11193,7 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
         <div id="orch-mode-B" style="display:none;">
           <div class="meta-field" style="margin-bottom: 10px;">
             <span class="meta-label">นน.รวมทั้งสวน</span>
-            <input class="meta-input" type="number" inputmode="decimal" id="f-orch-totalkg" placeholder="— กก." oninput="updatePctAllRows()">
+            <input class="meta-input" type="text" data-comma="1" inputmode="decimal" id="f-orch-totalkg" placeholder="— กก." oninput="updatePctAllRows()">
           </div>
           <table class="ledger l-pct">
             <thead>
@@ -11040,19 +11216,19 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
         <div class="expenses">
           <div class="exp-row">
             <span class="exp-label">ซื้อสวน</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-orch-buy" placeholder="—">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-orch-buy" placeholder="—">
           </div>
           <div class="exp-row">
             <span class="exp-label">ค่าจัดทำ/โล</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-orch-perkg" placeholder="12" value="12">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-orch-perkg" placeholder="12" value="12">
           </div>
           <div class="exp-row">
             <span class="exp-label">ค่ารถ</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-orch-transport" placeholder="—">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-orch-transport" placeholder="—">
           </div>
           <div class="exp-row">
             <span class="exp-label">อื่นๆ</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-orch-other" placeholder="—">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-orch-other" placeholder="—">
           </div>
         </div>
 
@@ -11151,11 +11327,11 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
         <div class="expenses">
           <div class="exp-row">
             <span class="exp-label">ค่ารถ</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-pk-transport" placeholder="—">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-pk-transport" placeholder="—">
           </div>
           <div class="exp-row">
             <span class="exp-label">อื่นๆ</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-pk-other" placeholder="—">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-pk-other" placeholder="—">
           </div>
         </div>
 
@@ -11233,19 +11409,19 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
         <div class="expenses">
           <div class="exp-row">
             <span class="exp-label">ซื้อสวน</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-md-buy" placeholder="—">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-md-buy" placeholder="—">
           </div>
           <div class="exp-row">
             <span class="exp-label">ค่าจัดทำ/โล</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-md-perkg" placeholder="12" value="12">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-md-perkg" placeholder="12" value="12">
           </div>
           <div class="exp-row">
             <span class="exp-label">ค่ารถ</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-md-transport" placeholder="—">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-md-transport" placeholder="—">
           </div>
           <div class="exp-row">
             <span class="exp-label">อื่นๆ</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-md-other" placeholder="—">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-md-other" placeholder="—">
           </div>
         </div>
 
@@ -11318,19 +11494,19 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
         <div class="expenses plan-expenses">
           <div class="exp-row">
             <span class="exp-label">ราคาเหมา</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-plan-buy" placeholder="—">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-plan-buy" placeholder="—">
           </div>
           <div class="exp-row">
             <span class="exp-label">ค่าจัดทำ/โล</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-plan-perkg" placeholder="12" value="12">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-plan-perkg" placeholder="12" value="12">
           </div>
           <div class="exp-row">
             <span class="exp-label">ค่ารถ</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-plan-transport" placeholder="—">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-plan-transport" placeholder="—">
           </div>
           <div class="exp-row">
             <span class="exp-label">นน.คาดทั้งสวน (กก.)</span>
-            <input class="exp-input" type="number" inputmode="decimal" id="f-plan-totalkg" placeholder="—">
+            <input class="exp-input" type="text" data-comma="1" inputmode="decimal" id="f-plan-totalkg" placeholder="—">
           </div>
         </div>
 
@@ -11387,7 +11563,7 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
               <span>นน.หาย <span class="scn-small">เก็บได้น้อย</span></span>
             </span>
             <span class="scn-row-input">
-              <input type="number" inputmode="decimal" value="0" id="wf-kgloss" min="0" step="50">
+              <input type="text" data-comma="1" inputmode="decimal" value="0" id="wf-kgloss" min="0" step="50">
               <span class="unit">กก.</span>
             </span>
           </div>
@@ -11408,7 +11584,7 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
               <span>ราคาตก <span class="scn-small">วันที่วางแผน</span></span>
             </span>
             <span class="scn-row-input">
-              <input type="number" inputmode="decimal" value="0" id="wf-pdrop" min="0" step="1">
+              <input type="text" data-comma="1" inputmode="decimal" value="0" id="wf-pdrop" min="0" step="1">
               <span class="unit">บ./โล</span>
             </span>
           </div>
@@ -11542,7 +11718,7 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
       รถขนได้ <strong>กี่ตระกร้า/วัน</strong> (ทศนิยมได้)
     </div>
     <div class="calc-modal-input-wrap">
-      <input type="number" inputmode="decimal" id="calc-cap" value="150" step="0.5" min="1">
+      <input type="text" data-comma="1" inputmode="decimal" id="calc-cap" value="150" step="0.5" min="1">
       <span class="unit">ตก./วัน</span>
     </div>
     <div class="calc-modal-preset">
@@ -12364,6 +12540,14 @@ function goAdmin() {
   if (window.supaReady) {
     _cloudPullUsers().catch(()=>{});
   }
+  // ── errlog: เวอร์ชัน + สถานะสวิตช์ + โหลดรายการ ──
+  try {
+    const vEl = document.getElementById('errlog-ver');
+    if (vEl) vEl.textContent = (window.__APP_VERSION || '') + ' · #' + (window.__APP_BUILD || '?');
+    const chk = document.getElementById('errlog-on-chk');
+    if (chk) chk.checked = (localStorage.getItem('thodsapon_errlog_on') !== '0');
+    if (window.errlogOpen) errlogOpen();
+  } catch (e) {}
 }
 
 function toggleUserMenu(ev) {
@@ -13535,14 +13719,14 @@ function renderRows() {
       <tr class="${isEmpty ? 'empty-line' : ''}" data-id="${r.id}">
         <td><input class="cell-input grade" placeholder="—" value="${escapeHtml(r.grade||'')}"
              oninput="updateRow('${r.id}','grade',this.value)"></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.baskets}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${r.baskets}"
              oninput="updateRow('${r.id}','baskets',this.value)"></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="20" value="${r.kgPer}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="20" value="${r.kgPer}"
              oninput="updateRow('${r.id}','kgPer',this.value)"></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.extra}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${r.extra}"
              oninput="updateRow('${r.id}','extra',this.value)"></td>
         <td><div class="cell-calc ${totalKg ? '' : 'empty'}" data-total="${r.id}">${totalKg ? fmt(totalKg) : '—'}</div></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.quotedPrice}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${numStr(r.quotedPrice)}"
              oninput="updateRow('${r.id}','quotedPrice',this.value)"></td>
         <td><div class="cell-calc amount ${amount ? '' : 'empty'}" data-amount="${r.id}">${amount ? fmt(amount) : '—'}</div></td>
         <td><button class="row-del" onclick="delRow('${r.id}')" aria-label="ลบ">×</button></td>
@@ -13578,6 +13762,7 @@ function renderFoot() {
 function updateRow(id, key, val) {
   const r = rows.find(x => x.id === id);
   if (!r) return;
+  if (typeof val === 'string' && key !== 'grade') val = val.replace(/,/g, '');
   r[key] = val;
   const totalKg = totalKgOf(r);
   const price = Number(r.quotedPrice) || 0;
@@ -13663,7 +13848,7 @@ function renderSold() {
       <tr data-soldid="${r.id}">
         <td><div class="cell-calc grade">${escapeHtml(r.grade||'')}</div></td>
         <td><div class="cell-calc" data-skg="${r.id}">${fmt(kg)}</div></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.soldPrice}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${numStr(r.soldPrice)}"
              oninput="updateRow('${r.id}','soldPrice',this.value)"></td>
         <td><div class="cell-calc amount ${amt ? '' : 'empty'}" data-samt="${r.id}">${amt ? fmt(amt) : '—'}</div></td>
         <td><div class="cell-calc ${cls}" data-spf="${r.id}">${profit === null ? '—' : sign(profit)}</div></td>
@@ -13706,7 +13891,7 @@ function renderSummary_form() {
   const quotedAmt = rows.reduce((s, r) => s + totalKgOf(r) * (Number(r.quotedPrice) || 0), 0);
   const soldAmt = rows.reduce((s, r) => s + totalKgOf(r) * (Number(r.soldPrice) || 0), 0);
   const exp = ['f-roast','f-transport','f-process','f-deduct']
-    .reduce((s, id) => s + (Number(document.getElementById(id).value) || 0), 0);
+    .reduce((s, id) => s + (numCv(id) || 0), 0);
 
   const hasSold = rows.some(r => Number(r.soldPrice) > 0);
   const profit = hasSold ? soldAmt - quotedAmt - exp : null;
@@ -13929,14 +14114,14 @@ function renderOrch() {
       <tr class="${isEmpty ? 'empty-line' : ''}" data-oid="${r.id}">
         <td><input class="cell-input grade" placeholder="—" value="${r.grade}"
              oninput="updateOrch('${r.id}','grade',this.value)"></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.baskets}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${r.baskets}"
              oninput="updateOrch('${r.id}','baskets',this.value)"></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="20" value="${r.kgPer}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="20" value="${r.kgPer}"
              oninput="updateOrch('${r.id}','kgPer',this.value)"></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.extra}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${r.extra}"
              oninput="updateOrch('${r.id}','extra',this.value)"></td>
         <td><div class="cell-calc ${kg ? '' : 'empty'}" data-okg="${r.id}">${kg ? fmt(kg) : '—'}</div></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.sellPrice}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${numStr(r.sellPrice)}"
              oninput="updateOrch('${r.id}','sellPrice',this.value)"></td>
         <td><div class="cell-calc amount ${amt ? '' : 'empty'}" data-oamt="${r.id}">${amt ? fmt(amt) : '—'}</div></td>
         <td><button class="row-del" onclick="delOrchRow('${r.id}')">×</button></td>
@@ -13972,6 +14157,7 @@ function renderOrchFoot() {
 function updateOrch(id, key, val) {
   const r = orchRows.find(x => x.id === id);
   if (!r) return;
+  if (typeof val === 'string' && key !== 'grade') val = val.replace(/,/g, '');
   r[key] = val;
   // อัพเดต cell คำนวณในแถว ไม่ re-render input
   const kg = totalKgOrch(r);
@@ -14000,7 +14186,7 @@ function updateOrch(id, key, val) {
 // ── Mode B render ──
 function renderOrchPct() {
   const body = document.getElementById('orch-pct-body');
-  const totalKg = Number(document.getElementById('f-orch-totalkg').value) || 0;
+  const totalKg = numCv('f-orch-totalkg') || 0;
   body.innerHTML = orchPctRows.map(r => {
     const pct = Number(r.pct) || 0;
     const kg = (pct / 100) * totalKg;
@@ -14011,10 +14197,10 @@ function renderOrchPct() {
       <tr class="${isEmpty ? 'empty-line' : ''}" data-pid="${r.id}">
         <td><input class="cell-input grade" placeholder="—" value="${r.grade}"
              oninput="updateOrchPct('${r.id}','grade',this.value)"></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.pct}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${r.pct}"
              oninput="updateOrchPct('${r.id}','pct',this.value)"></td>
         <td><div class="cell-calc ${kg ? '' : 'empty'}" data-pkg="${r.id}">${kg ? fmt(kg) : '—'}</div></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.sellPrice}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${numStr(r.sellPrice)}"
              oninput="updateOrchPct('${r.id}','sellPrice',this.value)"></td>
         <td><div class="cell-calc amount ${amt ? '' : 'empty'}" data-pamt="${r.id}">${amt ? fmt(amt) : '—'}</div></td>
         <td><button class="row-del" onclick="delOrchPctRow('${r.id}')">×</button></td>
@@ -14027,7 +14213,7 @@ function renderOrchPct() {
 
 function renderOrchPctFoot() {
   const foot = document.getElementById('orch-pct-foot');
-  const totalKg = Number(document.getElementById('f-orch-totalkg').value) || 0;
+  const totalKg = numCv('f-orch-totalkg') || 0;
   let totPct = 0, totKg = 0, totAmt = 0;
   orchPctRows.forEach(r => {
     totPct += Number(r.pct) || 0;
@@ -14051,8 +14237,9 @@ function renderOrchPctFoot() {
 function updateOrchPct(id, key, val) {
   const r = orchPctRows.find(x => x.id === id);
   if (!r) return;
+  if (typeof val === 'string' && key !== 'grade') val = val.replace(/,/g, '');
   r[key] = val;
-  const totalKgInput = Number(document.getElementById('f-orch-totalkg').value) || 0;
+  const totalKgInput = numCv('f-orch-totalkg') || 0;
   const pct = Number(r.pct) || 0;
   const kg = (pct / 100) * totalKgInput;
   const price = Number(r.sellPrice) || 0;
@@ -14078,7 +14265,7 @@ function updateOrchPct(id, key, val) {
 
 // อัพเดตทุก cell นน. และ จำนวนเงิน เมื่อเปลี่ยน นน.รวมทั้งสวน
 function updatePctAllRows() {
-  const totalKgInput = Number(document.getElementById('f-orch-totalkg').value) || 0;
+  const totalKgInput = numCv('f-orch-totalkg') || 0;
   orchPctRows.forEach(r => {
     const pct = Number(r.pct) || 0;
     const kg = (pct / 100) * totalKgInput;
@@ -14109,7 +14296,7 @@ function renderOrchSummary() {
       totRevenue += kg * (Number(r.sellPrice) || 0);
     });
   } else {
-    const totalKg = Number(document.getElementById('f-orch-totalkg').value) || 0;
+    const totalKg = numCv('f-orch-totalkg') || 0;
     orchPctRows.forEach(r => {
       const kg = (Number(r.pct) || 0) / 100 * totalKg;
       totKg += kg;
@@ -14117,10 +14304,10 @@ function renderOrchSummary() {
     });
   }
 
-  const buy = Number(document.getElementById('f-orch-buy').value) || 0;
-  const perKg = Number(document.getElementById('f-orch-perkg').value) || 0;
-  const transport = Number(document.getElementById('f-orch-transport').value) || 0;
-  const other = Number(document.getElementById('f-orch-other').value) || 0;
+  const buy = numCv('f-orch-buy') || 0;
+  const perKg = numCv('f-orch-perkg') || 0;
+  const transport = numCv('f-orch-transport') || 0;
+  const other = numCv('f-orch-other') || 0;
 
   const processCost = perKg * totKg;
   const totalCost = buy + processCost + transport + other;
@@ -14247,7 +14434,7 @@ function renderOrchDashboard(totKg, totRevenue, totalCost, profit) {
       }));
   } else {
     unit.textContent = '(% เบอร์)';
-    const tk = Number(document.getElementById('f-orch-totalkg').value) || 0;
+    const tk = numCv('f-orch-totalkg') || 0;
     bars = orchPctRows
       .filter(r => r.grade && r.pct)
       .map(r => {
@@ -14302,6 +14489,7 @@ function delPerkgRow(id) { perkgRows = perkgRows.filter(r => r.id !== id); rende
 function updatePerkg(id, key, val) {
   const r = perkgRows.find(x => x.id === id);
   if (!r) return;
+  if (typeof val === 'string' && key !== 'grade') val = val.replace(/,/g, '');
   r[key] = val;
 
   // ถ้าเปลี่ยน grade — ตารางขายต้อง re-render เพราะ filter เปลี่ยน
@@ -14373,15 +14561,15 @@ function renderPerkg() {
     const isEmpty = !r.grade && !r.kg;
     return `
       <tr class="${isEmpty ? 'empty-line' : ''}" data-pkbuyid="${r.id}">
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="20" value="${r.buyPrice}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="20" value="${numStr(r.buyPrice)}"
              oninput="updatePerkg('${r.id}','buyPrice',this.value)"></td>
         <td><input class="cell-input grade" placeholder="—" value="${r.grade}"
              oninput="updatePerkg('${r.id}','grade',this.value)"></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.kg}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${numStr(r.kg)}"
              oninput="updatePerkg('${r.id}','kg',this.value)"></td>
         <td><div class="cell-calc ${baskets ? '' : 'empty'}" data-pkbk="${r.id}">${baskets ? baskets.toFixed(1) : '—'}</div></td>
         <td><div class="cell-calc amount ${buyAmt ? '' : 'empty'}" data-pkbuy="${r.id}">${buyAmt ? fmt(buyAmt) : '—'}</div></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="12" value="${r.processCost}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="12" value="${numStr(r.processCost)}"
              oninput="updatePerkg('${r.id}','processCost',this.value)"></td>
         <td><div class="cell-calc ${costPerKg ? '' : 'empty'}" style="color: var(--gold); font-weight: 700;" data-pkcost="${r.id}">${costPerKg ? costPerKg : '—'}</div></td>
         <td><button class="row-del" onclick="delPerkgRow('${r.id}')">×</button></td>
@@ -14409,7 +14597,7 @@ function renderPerkg() {
         <tr data-pksellid="${r.id}">
           <td><div class="cell-calc grade">${r.grade}</div></td>
           <td><div class="cell-calc" data-pksellkg="${r.id}">${fmt(kg)}</div></td>
-          <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.sellPrice}"
+          <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${numStr(r.sellPrice)}"
                oninput="updatePerkg('${r.id}','sellPrice',this.value)"></td>
           <td><div class="cell-calc amount ${sellAmt ? '' : 'empty'}" data-pksellamt="${r.id}">${sellAmt ? fmt(sellAmt) : '—'}</div></td>
           <td><div class="cell-calc ${cls}" data-pkpfk="${r.id}">${profitPerKg === null ? '—' : sign(profitPerKg)}</div></td>
@@ -14485,8 +14673,8 @@ function renderPerkgSummary() {
     totProc += kg * proc;
     totSell += kg * sell;
   });
-  const transport = Number(document.getElementById('f-pk-transport').value) || 0;
-  const other = Number(document.getElementById('f-pk-other').value) || 0;
+  const transport = numCv('f-pk-transport') || 0;
+  const other = numCv('f-pk-other') || 0;
   const extra = transport + other;
 
   const totCost = totBuy + totProc;
@@ -14720,6 +14908,7 @@ function refreshMDDateLabel(id, iso) {
 function updateMultiDay(id, key, val, gradeKey) {
   const r = multiDayRows.find(x => x.id === id);
   if (!r) return;
+  if (typeof val === 'string' && key !== 'grade') val = val.replace(/,/g, '');
   if (key === 'baskets') {
     r.baskets[gradeKey] = val;
   } else {
@@ -14784,13 +14973,13 @@ function renderMultiDay() {
                    onchange="updateMultiDay('${r.id}','date',this.value); refreshMDDateLabel('${r.id}', this.value)">
           </label>
         </td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.sellPrice}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${numStr(r.sellPrice)}"
              oninput="updateMultiDay('${r.id}','sellPrice',this.value)"></td>
         ${multiDayGrades.map(g => `
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.baskets[g]}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${r.baskets[g]}"
              oninput="updateMultiDay('${r.id}','baskets',this.value,'${g}')"></td>
         `).join('')}
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.extra}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${r.extra}"
              oninput="updateMultiDay('${r.id}','extra',this.value)"></td>
         <td><div class="cell-calc ${kg ? '' : 'empty'}" data-mdkg="${r.id}">${kg ? fmt(kg) : '—'}</div></td>
         <td><div class="cell-calc amount ${amt ? '' : 'empty'}" data-mdamt="${r.id}">${amt ? fmt(amt) : '—'}</div></td>
@@ -14839,10 +15028,10 @@ function renderMultiDaySummary() {
     totRevenue += totalKgMD(r) * (Number(r.sellPrice) || 0);
   });
 
-  const buy = Number(document.getElementById('f-md-buy').value) || 0;
-  const perKg = Number(document.getElementById('f-md-perkg').value) || 0;
-  const transport = Number(document.getElementById('f-md-transport').value) || 0;
-  const other = Number(document.getElementById('f-md-other').value) || 0;
+  const buy = numCv('f-md-buy') || 0;
+  const perKg = numCv('f-md-perkg') || 0;
+  const transport = numCv('f-md-transport') || 0;
+  const other = numCv('f-md-other') || 0;
   const processCost = perKg * totKg;
   const totalCost = buy + processCost + transport + other;
   const profit = totRevenue ? totRevenue - totalCost : null;
@@ -14923,7 +15112,7 @@ function planDayTotalRevenue(d) { return d.rows.reduce((s, r) => s + totalKgPlan
 function planDayTotalBaskets(d) { return d.rows.reduce((s, r) => s + (Number(r.baskets) || 0), 0); }
 
 function computePlanTotalKg() {
-  return Number(document.getElementById('f-plan-totalkg').value) || 0;
+  return numCv('f-plan-totalkg') || 0;
 }
 
 // ── chips ──
@@ -15094,6 +15283,7 @@ function updatePlanRow(dayId, rowIdx, key, val) {
   if (!d) return;
   const r = d.rows[rowIdx];
   if (!r) return;
+  if (typeof val === 'string' && key !== 'grade') val = val.replace(/,/g, '');
   r[key] = val;
   // bind ตก. ↔ % สำหรับ plan day
   if (d.type === 'plan' && (key === 'baskets' || key === 'pct')) {
@@ -15254,17 +15444,17 @@ function renderPlanDayCard(d, dayIdx) {
     return `
       <tr data-pdid="${d.id}" data-pridx="${ri}">
         <td class="grade-cell">${escapeHtml(r.grade||'')}</td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="0" value="${r.baskets}" data-pbk
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="0" value="${r.baskets}" data-pbk
              oninput="updatePlanRow('${d.id}',${ri},'baskets',this.value)"></td>
         ${isReal ? `
-          <td><input class="cell-input kgper" type="number" inputmode="decimal" value="${r.kgPer}"
+          <td><input class="cell-input kgper" type="text" data-comma="1" inputmode="decimal" value="${r.kgPer}"
                oninput="updatePlanRow('${d.id}',${ri},'kgPer',this.value)"></td>
         ` : `
-          <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${pctVal}" data-ppct
+          <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${pctVal}" data-ppct
                oninput="updatePlanRow('${d.id}',${ri},'pct',this.value)"></td>
         `}
         <td><div class="cell-calc ${kg ? '' : 'empty'}" data-pkg>${kg ? fmt(kg) : '—'}</div></td>
-        <td><input class="cell-input" type="number" inputmode="decimal" placeholder="—" value="${r.sellPrice}"
+        <td><input class="cell-input" type="text" data-comma="1" inputmode="decimal" placeholder="—" value="${numStr(r.sellPrice)}"
              oninput="updatePlanRow('${d.id}',${ri},'sellPrice',this.value)"></td>
         <td><div class="cell-calc amount ${amt ? '' : 'empty'}" data-pamt>${amt ? fmt(amt) : '—'}</div></td>
       </tr>
@@ -15317,9 +15507,9 @@ function renderPlanDayCard(d, dayIdx) {
 }
 
 function renderPlanSummary() {
-  const buy = Number(document.getElementById('f-plan-buy').value) || 0;
-  const perKg = Number(document.getElementById('f-plan-perkg').value) || 0;
-  const transport = Number(document.getElementById('f-plan-transport').value) || 0;
+  const buy = numCv('f-plan-buy') || 0;
+  const perKg = numCv('f-plan-perkg') || 0;
+  const transport = numCv('f-plan-transport') || 0;
   const totalKgPlan = computePlanTotalKg();
 
   let revReal = 0, revPlan = 0, kgReal = 0, kgPlan = 0;
@@ -15367,9 +15557,9 @@ function renderPlanSummary() {
 // ── What-if Scenarios ──
 function renderWhatIf() {
   if (formType !== 'plan') return;
-  const buy = Number(document.getElementById('f-plan-buy').value) || 0;
-  const perKg = Number(document.getElementById('f-plan-perkg').value) || 0;
-  const transport = Number(document.getElementById('f-plan-transport').value) || 0;
+  const buy = numCv('f-plan-buy') || 0;
+  const perKg = numCv('f-plan-perkg') || 0;
+  const transport = numCv('f-plan-transport') || 0;
 
   let revReal = 0, revPlan = 0, kgReal = 0, kgPlan = 0;
   let kgPlanByPositiveGrades = 0;
@@ -15394,8 +15584,8 @@ function renderWhatIf() {
   const baseTotalCost = buy + baseProcessCost + transport;
   const baseProfit = totalRev - baseTotalCost;
 
-  const kgLoss = Math.max(0, Number(document.getElementById('wf-kgloss').value) || 0);
-  const pDrop = Math.max(0, Number(document.getElementById('wf-pdrop').value) || 0);
+  const kgLoss = Math.max(0, numCv('wf-kgloss') || 0);
+  const pDrop = Math.max(0, numCv('wf-pdrop') || 0);
 
   const avgPrice = totalKgAll > 0 ? totalRev / totalKgAll : 0;
   const revLossFromKg = kgLoss * avgPrice;
@@ -15517,7 +15707,7 @@ function updateCalcModalInfo() {
   const remainingKg = Math.max(0, totalKgPlan - usedKg);
   const remainingBk = remainingKg / KG_PER_BK;
 
-  const cap = Number(document.getElementById('calc-cap').value) || 0;
+  const cap = numCv('calc-cap') || 0;
   const info = document.getElementById('calc-modal-info');
 
   if (remainingKg <= 0) {
@@ -15552,7 +15742,7 @@ function updateCalcModalInfo() {
 }
 
 function runAutoCalc() {
-  const cap = Number(document.getElementById('calc-cap').value) || 0;
+  const cap = numCv('calc-cap') || 0;
   if (cap <= 0) { toast('ใส่ตระกร้า/วัน'); return; }
 
   // จำค่าล่าสุด
@@ -15650,14 +15840,14 @@ function readForm() {
         })),
       })),
       planCosts: {
-        buy: Number(document.getElementById('f-plan-buy').value) || 0,
-        perKg: Number(document.getElementById('f-plan-perkg').value) || 12,
-        transport: Number(document.getElementById('f-plan-transport').value) || 0,
-        totalKg: Number(document.getElementById('f-plan-totalkg').value) || 0,
+        buy: numCv('f-plan-buy') || 0,
+        perKg: numCv('f-plan-perkg') || 12,
+        transport: numCv('f-plan-transport') || 0,
+        totalKg: numCv('f-plan-totalkg') || 0,
       },
       whatIf: {
-        kgLoss: Number(document.getElementById('wf-kgloss').value) || 0,
-        pDrop: Number(document.getElementById('wf-pdrop').value) || 0,
+        kgLoss: numCv('wf-kgloss') || 0,
+        pDrop: numCv('wf-pdrop') || 0,
       },
       updatedAt: Date.now(),
     };
@@ -15683,10 +15873,10 @@ function readForm() {
         };
       }),
       multiDayCosts: {
-        buy: Number(document.getElementById('f-md-buy').value) || 0,
-        perKg: Number(document.getElementById('f-md-perkg').value) || 12,
-        transport: Number(document.getElementById('f-md-transport').value) || 0,
-        other: Number(document.getElementById('f-md-other').value) || 0,
+        buy: numCv('f-md-buy') || 0,
+        perKg: numCv('f-md-perkg') || 12,
+        transport: numCv('f-md-transport') || 0,
+        other: numCv('f-md-other') || 0,
       },
       updatedAt: Date.now(),
     };
@@ -15707,8 +15897,8 @@ function readForm() {
         sellPrice: Number(r.sellPrice) || 0,
       })),
       perkgExtra: {
-        transport: Number(document.getElementById('f-pk-transport').value) || 0,
-        other: Number(document.getElementById('f-pk-other').value) || 0,
+        transport: numCv('f-pk-transport') || 0,
+        other: numCv('f-pk-other') || 0,
       },
       updatedAt: Date.now(),
     };
@@ -15734,12 +15924,12 @@ function readForm() {
         pct: Number(r.pct) || 0,
         sellPrice: Number(r.sellPrice) || 0,
       })) : [],
-      orchTotalKg: Number(document.getElementById('f-orch-totalkg').value) || 0,
+      orchTotalKg: numCv('f-orch-totalkg') || 0,
       orchCosts: {
-        buy: Number(document.getElementById('f-orch-buy').value) || 0,
-        perKg: Number(document.getElementById('f-orch-perkg').value) || 12,
-        transport: Number(document.getElementById('f-orch-transport').value) || 0,
-        other: Number(document.getElementById('f-orch-other').value) || 0,
+        buy: numCv('f-orch-buy') || 0,
+        perKg: numCv('f-orch-perkg') || 12,
+        transport: numCv('f-orch-transport') || 0,
+        other: numCv('f-orch-other') || 0,
       },
       updatedAt: Date.now(),
     };
@@ -15760,10 +15950,10 @@ function readForm() {
       soldPrice: Number(r.soldPrice) || 0,
     })),
     expenses: {
-      roasting: Number(document.getElementById('f-roast').value) || 0,
-      transport: Number(document.getElementById('f-transport').value) || 0,
-      processing: Number(document.getElementById('f-process').value) || 0,
-      deduct: Number(document.getElementById('f-deduct').value) || 0,
+      roasting: numCv('f-roast') || 0,
+      transport: numCv('f-transport') || 0,
+      processing: numCv('f-process') || 0,
+      deduct: numCv('f-deduct') || 0,
     },
     updatedAt: Date.now(),
   };
@@ -16921,9 +17111,15 @@ async function cloudSyncOnce() {
     }
     _cloudStatus = 'synced';
     _cloudLastSync = Date.now();
+    // errlog: ตรวจข้อมูล + ส่งคิว + อัปเดต badge หลังซิงค์สำเร็จ
+    try { if (window.errlogValidate) errlogValidate(); } catch (e2) {}
+    try { if (window.__errlogFlush) window.__errlogFlush(); } catch (e2) {}
+    try { if (window.errlogRefreshBadge) errlogRefreshBadge(); } catch (e2) {}
   } catch (e) {
     console.error('[cloud] sync error', e);
     _cloudStatus = 'error';
+    // errlog: บันทึก error การซิงค์ (กลุ่ม sync)
+    try { if (window.__errlogCapture) window.__errlogCapture('sync', 'ซิงค์ล้มเหลว', (e && e.message) ? e.message : String(e), 'cloud-sync', 0, e && e.stack); } catch (e2) {}
   } finally {
     _cloudSyncInProgress = false;
     cloudUpdateIndicator();
@@ -16962,6 +17158,240 @@ async function forceFullResync() {
     toast('ดึงข้อมูลไม่สำเร็จ — ลองใหม่');
   }
 }
+  // ════════════════════════════════════════════
+  //  ERRLOG MODULE — cloud sync + viewer + validation
+  // ════════════════════════════════════════════
+  const ERRLOG_SEEN_KEY = 'thodsapon_errlog_seen';
+  let _errlogRows = [];
+  let _errlogTab = 'active';
+  let _errlogGrp = 'all';
+  let _errlogQuery = '';
+  let _errlogTableMissing = false;
+
+  function errlogEnabled() { return localStorage.getItem('thodsapon_errlog_on') !== '0'; }
+  function errlogDevice() {
+    const ua = navigator.userAgent || '';
+    const os = /iPhone|iPad|iPod/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : 'อื่นๆ';
+    const br = /CriOS/.test(ua) ? 'Chrome' : /FxiOS|Firefox/.test(ua) ? 'Firefox' : /Edg/.test(ua) ? 'Edge' : /Chrome/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : '?';
+    const pwa = ((window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone) ? '·PWA' : '';
+    return os + '·' + br + pwa;
+  }
+  function errlogCtx() {
+    let stor = '';
+    try { stor = ' · LS~' + Math.round((JSON.stringify(localStorage).length) / 1024) + 'KB'; } catch (e) {}
+    return (screen.width + '×' + screen.height) + ' · ' + (navigator.onLine ? 'ออนไลน์' : 'ออฟไลน์') + stor;
+  }
+
+  async function errlogFlush() {
+    if (!window.supaClient || !window.supaReady || _errlogTableMissing) return;
+    if (!navigator.onLine) return;
+    let q;
+    try { q = JSON.parse(localStorage.getItem('thodsapon_errlog_queue') || '[]'); } catch (e) { return; }
+    if (!q.length) return;
+    const user = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.name || currentUser.id) : 'ไม่ทราบ';
+    const device = errlogDevice();
+    const ctx = errlogCtx();
+    const rest = [];
+    for (const e of q) {
+      try {
+        const { error } = await window.supaClient.rpc('log_error', {
+          p_sig: e.sig, p_grp: e.group, p_kind: e.kind, p_msg: e.msg, p_src: e.src,
+          p_line: e.line || 0, p_stack: e.stack || '', p_build: e.build || window.__APP_BUILD,
+          p_view: e.view || '', p_user: user, p_device: device,
+          p_crumbs: e.crumbs || [], p_count: e.n || 1, p_ctx: ctx
+        });
+        if (error) {
+          if (/log_error|does not exist|schema cache|relation/i.test(error.message || '')) { _errlogTableMissing = true; return; }
+          rest.push(e);
+        }
+      } catch (err) { rest.push(e); }
+    }
+    try { localStorage.setItem('thodsapon_errlog_queue', JSON.stringify(rest)); } catch (e) {}
+  }
+  window.__errlogFlush = errlogFlush;
+
+  async function errlogFetch() {
+    if (!window.supaClient) return [];
+    try {
+      const { data, error } = await window.supaClient
+        .from('error_logs').select('*').order('last_seen', { ascending: false }).limit(500);
+      if (error) { if (/does not exist|relation|schema cache/i.test(error.message || '')) _errlogTableMissing = true; return []; }
+      return data || [];
+    } catch (e) { return []; }
+  }
+
+  async function errlogRefreshBadge() {
+    const dot = document.getElementById('menu-admin-badge');
+    if (typeof currentUser === 'undefined' || !currentUser || currentUser.role !== 'admin') { if (dot) dot.style.display = 'none'; return; }
+    if (!window.supaClient || _errlogTableMissing) { if (dot) dot.style.display = 'none'; return; }
+    try {
+      const seen = localStorage.getItem(ERRLOG_SEEN_KEY) || '1970-01-01T00:00:00Z';
+      const { count, error } = await window.supaClient
+        .from('error_logs').select('sig', { count: 'exact', head: true })
+        .gt('last_seen', seen).eq('last_build', window.__APP_BUILD);
+      if (error) return;
+      if (dot) {
+        if (count && count > 0) { dot.textContent = count > 99 ? '99+' : count; dot.style.display = ''; }
+        else dot.style.display = 'none';
+      }
+    } catch (e) {}
+  }
+  window.errlogRefreshBadge = errlogRefreshBadge;
+
+  function errlogValidate() {
+    try {
+      if (!errlogEnabled()) return;
+      const cap = window.__errlogCapture;
+      const seenG = {};
+      (gardens || []).forEach(g => {
+        if (!g || !g.id) return;
+        if (seenG[g.id]) cap('validate', 'ตรวจข้อมูล', 'สวน id ซ้ำ: ' + g.id, 'gardens', 0, '', 'val|gid|' + g.id);
+        seenG[g.id] = 1;
+        const lump = +g.lumpTotal || 0, dep = (typeof paidTotal === 'function' ? paidTotal(g) : (+g.deposit || 0));
+        if (g.dealType === 'lump' && lump > 0 && dep > lump)
+          cap('validate', 'ตรวจข้อมูล', 'จ่ายเกินราคาเหมา: "' + (g.name || g.id) + '" จ่าย ' + dep + ' / เหมา ' + lump, 'gardens', 0, '', 'val|over|' + g.id);
+        if (g.status === 'signed' && !(g.name && String(g.name).trim()))
+          cap('validate', 'ตรวจข้อมูล', 'สวนทำสัญญาแต่ไม่มีชื่อ: ' + g.id, 'gardens', 0, '', 'val|noname|' + g.id);
+      });
+      const qs = (typeof state !== 'undefined' && state && Array.isArray(state.quotes)) ? state.quotes : [];
+      const seenQ = {};
+      qs.forEach(q => { if (q && q.id) { if (seenQ[q.id]) cap('validate', 'ตรวจข้อมูล', 'บิล id ซ้ำ: ' + q.id, 'quotes', 0, '', 'val|qid|' + q.id); seenQ[q.id] = 1; } });
+    } catch (e) {}
+  }
+  window.errlogValidate = errlogValidate;
+
+  function errlogReport() {
+    const txt = prompt('แจ้งปัญหา/บัคที่เจอ (ระบบจะแนบหน้าจอ·เวอร์ชัน·เครื่องให้อัตโนมัติ):', '');
+    if (txt == null) return;
+    const t = String(txt).trim();
+    if (!t) return;
+    window.__errlogCapture('report', 'แจ้งโดยผู้ใช้', t, '', 0, '', 'report|' + Date.now() + '|' + Math.random().toString(36).slice(2, 6));
+    if (window.__errlogFlush) window.__errlogFlush();
+    if (typeof toast === 'function') toast('ส่งรายงานแล้ว ขอบคุณครับ 🙏');
+  }
+  window.errlogReport = errlogReport;
+
+  function errlogTest() {
+    window.__errlogCapture('error', 'ทดสอบ', 'ทดสอบระบบบันทึกข้อผิดพลาด (ไม่ใช่บัคจริง) #' + Date.now(), 'errlog-test', 0, 'test stack', 'test|' + Date.now());
+    if (window.__errlogFlush) window.__errlogFlush();
+    if (typeof toast === 'function') toast('ยิงรายการทดสอบแล้ว · กำลังรีเฟรช');
+    setTimeout(() => { errlogOpen(); }, 800);
+  }
+  window.errlogTest = errlogTest;
+
+  async function errlogAutoClear() {
+    if (!window.supaClient || _errlogTableMissing) return;
+    try { await window.supaClient.from('error_logs').delete().lt('last_build', window.__APP_BUILD - 5); } catch (e) {}
+  }
+
+  function errlogEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  function errlogTime(iso) {
+    try {
+      const d = new Date(iso); const mo = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+      return d.getDate() + ' ' + mo[d.getMonth()] + ' ' + ((d.getFullYear() + 543) % 100) + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    } catch (e) { return iso || ''; }
+  }
+  const ERRLOG_GICON = { error: '🔴', sync: '🔄', report: '📣', validate: '🧮' };
+  const ERRLOG_GNAME = { error: 'ข้อผิดพลาด', sync: 'ซิงค์', report: 'ผู้ใช้แจ้ง', validate: 'ตรวจข้อมูล' };
+
+  async function errlogOpen() {
+    const body = document.getElementById('errlog-body');
+    if (body) body.innerHTML = '<div style="text-align:center;padding:24px;color:#8a7350;">กำลังโหลด…</div>';
+    _errlogRows = await errlogFetch();
+    try { localStorage.setItem(ERRLOG_SEEN_KEY, new Date().toISOString()); } catch (e) {}
+    errlogRender();
+    errlogRefreshBadge();
+    errlogAutoClear();
+  }
+  window.errlogOpen = errlogOpen;
+
+  function errlogSetTab(t) { _errlogTab = t; errlogRender(); }
+  function errlogSetGrp(g) { _errlogGrp = g; errlogRender(); }
+  function errlogSearch(v) { _errlogQuery = (v || '').toLowerCase(); errlogRender(); }
+  window.errlogSetTab = errlogSetTab; window.errlogSetGrp = errlogSetGrp; window.errlogSearch = errlogSearch;
+
+  function errlogFiltered() {
+    const B = window.__APP_BUILD;
+    return _errlogRows.filter(r => {
+      const active = (r.last_build === B);
+      if (_errlogTab === 'active' && !active) return false;
+      if (_errlogTab === 'resolved' && active) return false;
+      if (_errlogGrp !== 'all' && r.grp !== _errlogGrp) return false;
+      if (_errlogQuery && !((r.msg || '') + (r.src || '') + (r.view || '')).toLowerCase().includes(_errlogQuery)) return false;
+      return true;
+    });
+  }
+
+  function errlogRender() {
+    const body = document.getElementById('errlog-body');
+    if (!body) return;
+    if (_errlogTableMissing) {
+      body.innerHTML = '<div style="padding:18px;background:#fff3e0;border:1px dashed #d8742a;border-radius:10px;color:#a8531a;font-size:13px;line-height:1.6;">ยังไม่ได้สร้างตารางใน Supabase<br>ทำตามขั้นตอน SQL ที่ผมส่งให้ก่อน แล้วกดรีเฟรชอีกครั้ง</div>';
+      return;
+    }
+    const B = window.__APP_BUILD;
+    const activeCnt = _errlogRows.filter(r => r.last_build === B).length;
+    const resolvedCnt = _errlogRows.filter(r => r.last_build < B).length;
+    const rows = errlogFiltered();
+    const tabBtn = (id, label, n) => '<button class="elx-tab ' + (_errlogTab === id ? 'on' : '') + '" onclick="errlogSetTab(\'' + id + '\')">' + label + (n != null ? ' (' + n + ')' : '') + '</button>';
+    const grpBtn = (id, label) => '<button class="elx-chip ' + (_errlogGrp === id ? 'on' : '') + '" onclick="errlogSetGrp(\'' + id + '\')">' + label + '</button>';
+
+    let html = '';
+    html += '<div class="elx-tabs">' + tabBtn('active', '🔴 ยังเจออยู่', activeCnt) + tabBtn('resolved', '🟢 ไม่เจอแล้ว', resolvedCnt) + tabBtn('all', 'ทั้งหมด', _errlogRows.length) + '</div>';
+    html += '<div class="elx-chips">' + grpBtn('all', 'ทั้งหมด') + grpBtn('error', '🔴 ข้อผิดพลาด') + grpBtn('sync', '🔄 ซิงค์') + grpBtn('report', '📣 ผู้ใช้แจ้ง') + grpBtn('validate', '🧮 ตรวจข้อมูล') + '</div>';
+    html += '<input class="elx-search" type="text" placeholder="🔎 ค้นหาข้อความ…" value="' + errlogEsc(_errlogQuery) + '" oninput="errlogSearch(this.value)">';
+
+    if (!rows.length) {
+      html += '<div style="text-align:center;padding:28px;color:#8a7350;font-size:13px;">' + (_errlogTab === 'active' ? '🎉 ไม่มีบัคที่ยังเจออยู่' : 'ไม่มีรายการ') + '</div>';
+    } else {
+      rows.forEach(r => {
+        const active = (r.last_build === B);
+        const devs = r.devices && typeof r.devices === 'object' ? Object.keys(r.devices) : [];
+        const crumbs = Array.isArray(r.last_crumbs) ? r.last_crumbs : [];
+        html += '<div class="elx-card ' + (active ? 'on' : 'off') + '">'
+          + '<div class="elx-row1"><span class="elx-dot">' + (active ? '🔴' : '🟢') + '</span><span class="elx-grp">' + (ERRLOG_GICON[r.grp] || '•') + ' ' + (ERRLOG_GNAME[r.grp] || r.grp) + '</span><span class="elx-cnt">×' + (r.count || 1) + '</span></div>'
+          + '<div class="elx-msg">' + errlogEsc(r.msg) + '</div>'
+          + '<div class="elx-meta">' + (r.src ? errlogEsc(r.src) + (r.line ? ':' + r.line : '') + ' · ' : '') + (r.view ? 'หน้า:' + errlogEsc(r.view) + ' · ' : '') + errlogTime(r.last_seen) + (active ? '' : ' · หายตั้งแต่บิลด์ #' + B) + '</div>'
+          + '<div class="elx-meta">เครื่อง: ' + (devs.length ? errlogEsc(devs.join(' , ')) : '—') + (r.last_ctx ? ' · ' + errlogEsc(r.last_ctx) : '') + '</div>'
+          + (crumbs.length ? '<details class="elx-det"><summary>เส้นทางก่อนเกิด (' + crumbs.length + ')</summary><div class="elx-pre">' + crumbs.map(c => errlogEsc((c.type || '') + ': ' + (c.d || ''))).join('<br>') + '</div></details>' : '')
+          + (r.stack ? '<details class="elx-det"><summary>stack</summary><div class="elx-pre">' + errlogEsc(r.stack) + '</div></details>' : '')
+          + '</div>';
+      });
+    }
+    body.innerHTML = html;
+  }
+
+  function errlogCopyForClaude() {
+    const B = window.__APP_BUILD;
+    const rows = errlogFiltered();
+    if (!rows.length) { if (typeof toast === 'function') toast('ไม่มีรายการให้คัดลอก'); return; }
+    let out = 'รายงานบัคจากแอป ทศพร (บิลด์ #' + B + ' · ' + window.__APP_VERSION + ')\n';
+    out += 'แท็บ: ' + _errlogTab + ' / กลุ่ม: ' + _errlogGrp + ' / จำนวน: ' + rows.length + '\n\n';
+    rows.forEach((r, i) => {
+      const devs = r.devices && typeof r.devices === 'object' ? Object.keys(r.devices) : [];
+      const crumbs = Array.isArray(r.last_crumbs) ? r.last_crumbs : [];
+      out += '── #' + (i + 1) + ' [' + (ERRLOG_GNAME[r.grp] || r.grp) + '] ' + (r.last_build === B ? 'ยังเจอ' : 'หายแล้ว') + ' ×' + (r.count || 1) + '\n';
+      out += 'ข้อความ: ' + (r.msg || '') + '\n';
+      if (r.src) out += 'ตำแหน่ง: ' + r.src + (r.line ? ':' + r.line : '') + '\n';
+      if (r.view) out += 'หน้า: ' + r.view + '\n';
+      out += 'ล่าสุด: ' + r.last_seen + ' · เครื่อง: ' + devs.join(', ') + (r.last_ctx ? ' · ' + r.last_ctx : '') + '\n';
+      if (crumbs.length) out += 'ก่อนเกิด: ' + crumbs.map(c => (c.type || '') + ':' + (c.d || '')).join(' → ') + '\n';
+      if (r.stack) out += 'stack: ' + r.stack + '\n';
+      out += '\n';
+    });
+    const done = () => { if (typeof toast === 'function') toast('คัดลอกแล้ว · วางส่งให้ Claude ได้เลย'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(out).then(done, () => { errlogFallbackCopy(out); done(); });
+    else { errlogFallbackCopy(out); done(); }
+  }
+  function errlogFallbackCopy(t) { try { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } catch (e) {} }
+  window.errlogCopyForClaude = errlogCopyForClaude;
+
+  function errlogToggleEnabled(on) {
+    localStorage.setItem('thodsapon_errlog_on', on ? '1' : '0');
+    if (typeof toast === 'function') toast(on ? 'เปิดการเก็บบัคแล้ว' : 'ปิดการเก็บบัคแล้ว');
+  }
+  window.errlogToggleEnabled = errlogToggleEnabled;
+
 window.forceFullResync = forceFullResync;
 
 // ── ปุ่มซิงค์หน้า Library: หมุนระหว่างดึงข้อมูล ──
@@ -18527,6 +18957,11 @@ if (!window._refineBarsBound) {
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { try { refineBars(); } catch(e){} });
 }
 
+window.lcToggleDays = function (el, ev) {
+  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+  try { var w = el.closest('.lc-daywrap'); if (w) w.classList.toggle('open'); } catch (e) {}
+};
+
 function renderListView() {
   document.getElementById('page-sub').textContent = `No. II · ${gardens.length} สวน`;
   renderChips();
@@ -18694,7 +19129,24 @@ function renderListView() {
           const dd = isNaN(d.getTime()) ? '?' : d.getDate();
           const mm = isNaN(d.getTime()) ? '' : d.toLocaleDateString('th-TH', { month: 'short' });
           const last = (i === colls.length - 1) ? ' last' : '';
-          return `<span class="lc-daycard${last}"><span class="d">${dd}</span><span class="m">${gbEscapeHtml(mm)}</span></span>`;
+          // ── ส่วนขยาย: รายเบอร์ + รวม ตก./กก. ของเที่ยวนั้น ──
+          const crows = (c.rows || []).filter(r => Number(r.baskets) || Number(r.extra));
+          let totBk, totKg, grHtml;
+          if (crows.length) {
+            totBk = crows.reduce((s, r) => s + (Number(r.baskets) || 0), 0);
+            totKg = crows.reduce((s, r) => s + (Number(r.baskets) || 0) * (Number(r.kgPer) || 0) + (Number(r.extra) || 0), 0);
+            grHtml = crows.map(r => {
+              const bk = Number(r.baskets) || 0, kp = Number(r.kgPer) || 0, ex = Number(r.extra) || 0;
+              const t = bk * kp + ex;
+              return `<span class="lc-gr"><span class="g">${gbEscapeHtml(r.grade || '—')}</span><span class="n">${fmtNum(bk)}ตก·${fmtNum(t)}กก</span></span>`;
+            }).join('');
+          } else {
+            totBk = Number(c.baskets) || 0;
+            totKg = Number(c.kg) || 0;
+            grHtml = `<span class="lc-gr"><span class="g">—</span><span class="n">${fmtNum(totBk)}ตก·${fmtNum(totKg)}กก</span></span>`;
+          }
+          const body = `<span class="lc-body"><span class="lc-sep"></span>${grHtml}<span class="lc-tot"><span class="v">${fmtNum(totBk)}</span>ตก·<span class="v">${fmtNum(totKg)}</span>กก</span></span>`;
+          return `<span class="lc-daycard${last}" onclick="lcToggleDays(this,event)"><span class="d">${dd}</span><span class="m">${gbEscapeHtml(mm)}</span>${body}</span>`;
         }).join('');
         row2Html = `<span class="lc-line2 lc-line2-dates">
           <span class="lc-drow"><span class="lc-dlabel">วันที่เปิด</span><span class="lc-dcolon">:</span><span class="num">${openTxt}</span></span>
@@ -19799,7 +20251,7 @@ function openGardenForm(id) {
             <div class="combo-stack">
               <div class="combo-input">
                 <span class="combo-mini-lbl">กิโลละ</span>
-                <input id="gf-kg-price" type="number" inputmode="decimal" value="${g.kgPrice!=null?Number(g.kgPrice):''}" placeholder="38">
+                <input id="gf-kg-price" type="text" data-comma="1" inputmode="decimal" value="${g.kgPrice!=null?Number(g.kgPrice):''}" placeholder="38">
                 <span class="combo-unit">บ./กก.</span>
               </div>
               <div class="combo-input">
@@ -20027,7 +20479,7 @@ function addGradeRow(grade='', price='') {
   row.className = 'grade-row';
   row.innerHTML = `
     <input type="text" class="g-grade" placeholder="เบอร์ (เช่น AA)" value="${gbEscapeHtml(grade)}">
-    <input type="number" class="g-price" inputmode="decimal" placeholder="ราคา (บ./กก.)" value="${price||''}">
+    <input type="text" data-comma="1" class="g-price" inputmode="decimal" placeholder="ราคา (บ./กก.)" value="${price||''}">
     <button type="button" class="g-del" onclick="this.parentElement.remove()">✕</button>
   `;
   wrap.appendChild(row);
@@ -20107,7 +20559,7 @@ function saveGarden() {
       if (dealType === 'kg-grade') return gfNum('gf-expected-kg3');
       return 0;
     })(),
-    kgPrice: dealType === 'kg-all' ? (Number(document.getElementById('gf-kg-price').value) || 0) : 0,
+    kgPrice: dealType === 'kg-all' ? (numCv('gf-kg-price') || 0) : 0,
     gradePrices,
     deposit,
     depositDate,
@@ -20115,7 +20567,7 @@ function saveGarden() {
     // มัดจำในฟอร์ม = ยอดจ่ายจริงทั้งหมด → รวบเป็นตัวเดียว เคลียร์ payments[]
     // (กันการนับซ้ำกับยอดจ่ายเพิ่มเดิม และให้แก้ตัวเลขผิดได้ทุกกรณี)
     payments: [],
-    pricePerBasket: dealType === 'kg-all' ? (Number(document.getElementById('gf-kg-price').value) || 0) : (g?.pricePerBasket || 0),
+    pricePerBasket: dealType === 'kg-all' ? (numCv('gf-kg-price') || 0) : (g?.pricePerBasket || 0),
   };
 
   if (id) {
@@ -21350,7 +21802,7 @@ function renderAutoPayOwnerEntry(g, entry, isClosed) {
               <span class="ape-kg">${fmtNum(kg)}</span>
               <span class="ape-kg-unit">กก.</span>
               <span class="ape-x">×</span>
-              <input class="ape-price-input" type="number" inputmode="decimal" ${inputAttrs} />
+              <input class="ape-price-input" type="text" data-comma="1" inputmode="decimal" ${inputAttrs} />
               <span class="ape-bath-unit">บ.</span>
               <span class="ape-amt">${fmtNum(amount)}</span>
             </div>
@@ -21375,7 +21827,7 @@ function onApePriceInput(entryId, idx, val) {
   if (!entry || !entry.items || !Array.isArray(entry.items.owner)) return;
   const item = entry.items.owner[idx];
   if (!item) return;
-  const newPrice = Number(val) || 0;
+  const newPrice = Number(String(val).replace(/[^0-9.\-]/g,'')) || 0;
   item.price = newPrice;
   item.amount = (Number(item.kg)||0) * newPrice;
   item.priceEdited = true; // flag — กัน sync overwrite
@@ -22054,9 +22506,9 @@ function cfRenderRows() {
   tbody.innerHTML = _collectionRows.map((r, i) => `
     <tr>
       <td><input class="cf-cell" value="${gbEscapeHtml(r.grade||'')}" placeholder="—" oninput="cfUpdate(${i},'grade',this.value)"></td>
-      <td><input class="cf-cell num" type="number" inputmode="decimal" value="${r.baskets||''}" placeholder="—" oninput="cfUpdate(${i},'baskets',this.value)"></td>
-      <td><input class="cf-cell num" type="number" inputmode="decimal" value="${r.kgPer||''}" oninput="cfUpdate(${i},'kgPer',this.value)"></td>
-      <td><input class="cf-cell num" type="number" inputmode="decimal" value="${r.extra||''}" placeholder="—" oninput="cfUpdate(${i},'extra',this.value)"></td>
+      <td><input class="cf-cell num" type="text" data-comma="1" inputmode="decimal" value="${r.baskets||''}" placeholder="—" oninput="cfUpdate(${i},'baskets',this.value)"></td>
+      <td><input class="cf-cell num" type="text" data-comma="1" inputmode="decimal" value="${r.kgPer||''}" oninput="cfUpdate(${i},'kgPer',this.value)"></td>
+      <td><input class="cf-cell num" type="text" data-comma="1" inputmode="decimal" value="${r.extra||''}" placeholder="—" oninput="cfUpdate(${i},'extra',this.value)"></td>
       <td class="cf-total num" id="cf-total-${i}">${cfRowTotal(r)}</td>
       <td><button class="cf-del" onclick="cfDelRow(${i})" title="ลบ">✕</button></td>
     </tr>
@@ -22074,6 +22526,7 @@ function cfRowTotal(r) {
 
 function cfUpdate(i, field, val) {
   if (!_collectionRows[i]) return;
+  if (typeof val === 'string' && field !== 'grade') val = val.replace(/,/g, '');
   _collectionRows[i][field] = val;
   // Update only the affected row's total cell
   const cell = document.getElementById(`cf-total-${i}`);
