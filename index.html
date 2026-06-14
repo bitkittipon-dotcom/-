@@ -30,8 +30,8 @@
 //  ระบบบันทึกข้อผิดพลาด (errlog) — ตัวดักจับเงียบ + เวอร์ชัน + breadcrumbs
 //  เก็บเงียบ ไม่มี UI เด้ง · admin เปิดดูในหน้าจัดการผู้ใช้
 // ════════════════════════════════════════════
-window.__APP_BUILD = 1004;                       // ← เลขบิลด์ (ผมบวกทุกครั้งที่ส่งไฟล์ใหม่ = ใช้ตัดสิน "แก้แล้ว")
-window.__APP_VERSION = 'อัปเดต 14 มิ.ย. 69 (4)';   // ← ข้อความเวอร์ชันโชว์ในแอป
+window.__APP_BUILD = 1005;                       // ← เลขบิลด์ (ผมบวกทุกครั้งที่ส่งไฟล์ใหม่ = ใช้ตัดสิน "แก้แล้ว")
+window.__APP_VERSION = 'อัปเดต 14 มิ.ย. 69 (5)';   // ← ข้อความเวอร์ชันโชว์ในแอป
 (function () {
   // ── breadcrumbs: จำ 12 การกระทำล่าสุดก่อนเกิดบัค ──
   window.__bcrumbs = [];
@@ -4699,19 +4699,19 @@ button, a, [onclick], [role="button"], input[type="button"], input[type="submit"
     /* ── กดชิปวัน → ขยายทุกใบ แถวเดียวเลื่อนแนวนอน (ตอนย่อ = ขนาดเดิม) ── */
     #garden-view .lc-daycard { cursor: pointer; transition: min-width .3s cubic-bezier(.22,.61,.36,1), background .25s, border-color .25s, box-shadow .25s; }
     #garden-view .lc-daycard:active { transform: scale(.96); }
-    #garden-view .lc-daycard .lc-body { max-height: 0; opacity: 0; overflow: hidden; width: 100%; transition: max-height .3s ease, opacity .2s ease, margin .3s ease; }
+    #garden-view .lc-daycard .lc-body { width: 0; max-height: 0; opacity: 0; overflow: hidden; transition: max-height .3s ease, opacity .2s ease, margin .3s ease; }
     #garden-view .lc-daycard .lc-sep { height: 1px; background: rgba(74,105,40,.25); margin: 3px 0 4px; }
-    #garden-view .lc-daycard .lc-gr { display: flex; justify-content: space-between; gap: 6px; font-size: 9.5px; color: #5a3818; padding: 0 1px; line-height: 1.45; }
+    #garden-view .lc-daycard .lc-gr { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; color: #5a3818; padding: 0 1px; line-height: 1.5; white-space: nowrap; }
     #garden-view .lc-daycard .lc-gr .g { font-weight: 800; color: #4a6928; }
-    #garden-view .lc-daycard .lc-gr .n { font-family: 'JetBrains Mono', monospace; font-weight: 700; white-space: nowrap; }
-    #garden-view .lc-daycard .lc-tot { display: flex; justify-content: center; gap: 5px; margin-top: 3px; font-size: 9.5px; font-weight: 800; color: #2f5d1f; background: rgba(74,105,40,.1); border-radius: 5px; padding: 2px 4px; white-space: nowrap; }
+    #garden-view .lc-daycard .lc-gr .n { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+    #garden-view .lc-daycard .lc-tot { display: flex; justify-content: center; gap: 5px; margin-top: 4px; font-size: 10px; font-weight: 800; color: #2f5d1f; background: rgba(74,105,40,.1); border-radius: 5px; padding: 3px 5px; white-space: nowrap; }
     #garden-view .lc-daycard .lc-tot .v { font-family: 'JetBrains Mono', monospace; }
     #garden-view .lc-daywrap.open { flex-wrap: nowrap; align-items: flex-start; overflow-x: auto; overflow-y: hidden; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
     #garden-view .lc-daywrap.open::-webkit-scrollbar { height: 5px; }
     #garden-view .lc-daywrap.open::-webkit-scrollbar-thumb { background: rgba(74,105,40,.4); border-radius: 3px; }
-    #garden-view .lc-daywrap.open .lc-daycard { min-width: 104px; border-color: #4a6928; background: #f4faec; box-shadow: 0 2px 6px rgba(74,105,40,.22); }
+    #garden-view .lc-daywrap.open .lc-daycard { min-width: 96px; border-color: #4a6928; background: #f4faec; box-shadow: 0 2px 6px rgba(74,105,40,.22); }
     #garden-view .lc-daywrap.open .lc-daycard.last { background: #eef7e0; }
-    #garden-view .lc-daywrap.open .lc-daycard .lc-body { max-height: 160px; opacity: 1; margin-top: 4px; }
+    #garden-view .lc-daywrap.open .lc-daycard .lc-body { width: 100%; max-height: 170px; opacity: 1; margin-top: 4px; }
 
     #garden-view .lc-bar-row {
       display: flex;
@@ -19136,16 +19136,15 @@ function renderListView() {
             totBk = crows.reduce((s, r) => s + (Number(r.baskets) || 0), 0);
             totKg = crows.reduce((s, r) => s + (Number(r.baskets) || 0) * (Number(r.kgPer) || 0) + (Number(r.extra) || 0), 0);
             grHtml = crows.map(r => {
-              const bk = Number(r.baskets) || 0, kp = Number(r.kgPer) || 0, ex = Number(r.extra) || 0;
-              const t = bk * kp + ex;
-              return `<span class="lc-gr"><span class="g">${gbEscapeHtml(r.grade || '—')}</span><span class="n">${fmtNum(bk)}ตก·${fmtNum(t)}กก</span></span>`;
+              const bk = Number(r.baskets) || 0;
+              return `<span class="lc-gr"><span class="g">${gbEscapeHtml(r.grade || '—')}</span><span class="n">${fmtNum(bk)} ตก.</span></span>`;
             }).join('');
           } else {
             totBk = Number(c.baskets) || 0;
             totKg = Number(c.kg) || 0;
-            grHtml = `<span class="lc-gr"><span class="g">—</span><span class="n">${fmtNum(totBk)}ตก·${fmtNum(totKg)}กก</span></span>`;
+            grHtml = `<span class="lc-gr"><span class="g">—</span><span class="n">${fmtNum(totBk)} ตก.</span></span>`;
           }
-          const body = `<span class="lc-body"><span class="lc-sep"></span>${grHtml}<span class="lc-tot"><span class="v">${fmtNum(totBk)}</span>ตก·<span class="v">${fmtNum(totKg)}</span>กก</span></span>`;
+          const body = `<span class="lc-body"><span class="lc-sep"></span>${grHtml}<span class="lc-tot"><span class="v">${fmtNum(totBk)}</span> ตก·<span class="v">${fmtNum(totKg)}</span> กก</span></span>`;
           return `<span class="lc-daycard${last}" onclick="lcToggleDays(this,event)"><span class="d">${dd}</span><span class="m">${gbEscapeHtml(mm)}</span>${body}</span>`;
         }).join('');
         row2Html = `<span class="lc-line2 lc-line2-dates">
